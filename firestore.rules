@@ -1,0 +1,131 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isValidUser() {
+      return isAuthenticated() && 
+             request.auth.token.email_verified == true;
+    }
+    
+    function isValidUserData() {
+      return request.resource.data.keys().hasAll(['uid', 'email', 'displayName']) &&
+             request.resource.data.uid == request.auth.uid &&
+             request.resource.data.email == request.auth.token.email;
+    }
+    
+    function isValidSentenceData() {
+      return request.resource.data.keys().hasAll(['userId', 'englishSentence', 'status']) &&
+             request.resource.data.userId == request.auth.uid &&
+             request.resource.data.status in ['pending', 'analyzed'] &&
+             request.resource.data.englishSentence is string &&
+             request.resource.data.englishSentence.size() > 0 &&
+             request.resource.data.englishSentence.size() <= 500;
+    }
+    
+    function isValidCreditTransaction() {
+      return request.resource.data.keys().hasAll(['userId', 'type', 'amount']) &&
+             request.resource.data.userId == request.auth.uid &&
+             request.resource.data.type in ['usage', 'purchase', 'bonus'] &&
+             request.resource.data.amount is number;
+    }
+    
+    function isValidPayment() {
+      return request.resource.data.keys().hasAll(['userId', 'amount', 'currency', 'status']) &&
+             request.resource.data.userId == request.auth.uid &&
+             request.resource.data.currency == 'thb' &&
+             request.resource.data.status in ['pending', 'processing', 'completed', 'failed', 'cancelled'] &&
+             request.resource.data.amount is number &&
+             request.resource.data.amount > 0;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      // Allow read/write only for the authenticated user
+      allow read, write: if isValidUser() && isOwner(userId);
+      
+      // Allow creation only with valid data
+      allow create: if isValidUser() && 
+                       isOwner(userId) && 
+                       isValidUserData();
+      
+      // Allow updates but protect critical fields
+      allow update: if isValidUser() && 
+                       isOwner(userId) && 
+                       // Prevent updating critical fields directly
+                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'email', 'credits', 'totalCreditsUsed', 'totalCreditsPurchased']);
+    }
+    
+    // Sentences collection
+    match /sentences/{sentenceId} {
+      // Allow read/write only for the sentence owner
+      allow read, write: if isValidUser() && 
+                            isOwner(resource.data.userId);
+      
+      // Allow creation with valid data
+      allow create: if isValidUser() && 
+                       isValidSentenceData();
+      
+      // Allow updates but protect userId
+      allow update: if isValidUser() && 
+                       isOwner(resource.data.userId) &&
+                       request.resource.data.userId == resource.data.userId;
+    }
+    
+    // Credit transactions collection
+    match /credit_transactions/{transactionId} {
+      // Allow read only for the transaction owner
+      allow read: if isValidUser() && 
+                     isOwner(resource.data.userId);
+      
+      // Allow creation only by system (server-side)
+      // Users cannot directly create credit transactions
+      allow create: if false;
+      
+      // No updates or deletes allowed
+      allow update, delete: if false;
+    }
+    
+    // Payments collection
+    match /payments/{paymentId} {
+      // Allow read only for the payment owner
+      allow read: if isValidUser() && 
+                     isOwner(resource.data.userId);
+      
+      // Allow creation with valid data
+      allow create: if isValidUser() && 
+                       isValidPayment();
+      
+      // Allow status updates only by system (server-side)
+      // Users cannot update payment status
+      allow update: if false;
+      
+      // No deletes allowed
+      allow delete: if false;
+    }
+    
+    // Admin collection (for system configuration)
+    match /admin/{document=**} {
+      // Only allow server-side access
+      allow read, write: if false;
+    }
+    
+    // Analytics collection (for usage tracking)
+    match /analytics/{document=**} {
+      // Only allow server-side access
+      allow read, write: if false;
+    }
+    
+    // Default deny all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

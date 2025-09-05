@@ -8,25 +8,36 @@ export interface ApiResponse {
   timestamp?: string;
 }
 
+export interface ValidationResult {
+  isValid: boolean;
+  missingFields: string[];
+}
+
 export function createSuccessResponse(
+  res: any,
   data?: any,
   message?: string
-): ApiResponse {
-  return {
+): void {
+  res.status(200).json({
     success: true,
     message: message || "Operation successful",
     data,
     timestamp: new Date().toISOString(),
-  };
+  });
 }
 
-export function createErrorResponse(error: string, data?: any): ApiResponse {
-  return {
+export function createErrorResponse(
+  res: any,
+  error: string,
+  statusCode: number = 400,
+  data?: any
+): void {
+  res.status(statusCode).json({
     success: false,
     error,
     data,
     timestamp: new Date().toISOString(),
-  };
+  });
 }
 
 export function setCorsHeaders(res: any) {
@@ -46,11 +57,17 @@ export function handleOptionsRequest(res: any) {
 export function validateRequiredFields(
   body: any,
   requiredFields: string[]
-): string | null {
+): ValidationResult {
+  const missingFields: string[] = [];
+  
   for (const field of requiredFields) {
-    if (!body[field]) {
-      return `Missing required field: ${field}`;
+    if (!body || !body[field]) {
+      missingFields.push(field);
     }
   }
-  return null;
+  
+  return {
+    isValid: missingFields.length === 0,
+    missingFields
+  };
 }

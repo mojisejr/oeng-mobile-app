@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "112013186869",
+    "project_id": "oeng-app",
+    "storage_bucket": "oeng-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:112013186869:android:9ba399252cf7ff0e7dde7c",
+        "android_client_info": {
+          "package_name": "com.cielcomp.oeng"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "112013186869-gktmvct1tdgjm4n65smbtttebllme094.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA_5aNirVyNulQhs2dgYbEuyc1CTuwZPR8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "112013186869-gktmvct1tdgjm4n65smbtttebllme094.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "112013186869-5n215vgognna6kv145fr5i7pb19a1ccb.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.cielcom.oeng"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
