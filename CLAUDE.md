@@ -3,7 +3,7 @@
 
 **Project Name**: AI English Coach
 
-**Repository**: https://github.com/mojisejr/mimivibe-ai.git
+**Repository**: https://github.com/mojisejr/oeng-mobile-app 
 
 **Description**: แอปพลิเคชันบนมือถือที่ช่วยให้ผู้ใช้สามารถฝึกฝนและตรวจสอบความถูกต้องของประโยคภาษาอังกฤษที่ใช้ในชีวิตจริง โดยใช้ AI (LLM) เป็นเครื่องมือหลักในการให้คำแนะนำและแก้ไขอย่างละเอียด ระบบใช้ Google Gemini 2.0 Flash API เพื่อสร้างการวิเคราะห์ที่มีคุณภาพสูงและเป็นธรรมชาติ
 
@@ -105,6 +105,7 @@ const getThailandDateForFilename = () => {
 ### Mobile App Structure
 
 - **Core Screens**:
+
   - `Add/Edit Sentence Screen`: Input fields for English sentence, user translation, and context
   - `Sentence List Screen`: Display saved sentences with status indicators and search/filter
   - `Analysis Result Screen`: AI-generated analysis with 7 detailed sections
@@ -120,11 +121,13 @@ const getThailandDateForFilename = () => {
 ### Backend Render Serverless Functions
 
 - **Sentence Management**:
+
   - `POST /api/saveSentence`: Save new sentences to Firestore
   - `GET /api/getSentences`: Retrieve user's sentence list with filtering
   - `POST /api/analyzeSentence`: Process AI analysis and update sentence status
 
 - **User Management**:
+
   - User profile and credit balance management
   - Authentication state handling
   - Credit deduction and top-up processing
