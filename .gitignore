@@ -3,6 +3,7 @@ docs/
 
 # dependencies
 node_modules/
+.env
 
 # Expo
 .expo/
