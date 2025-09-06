@@ -1,57 +1,33 @@
 # Current Focus
 
-**Updated**: 2025-09-06 08:59:34 (Thailand Time)
+**Updated**: 2025-09-06 14:29:36 (Thailand Time)
 
 ## Context
 
-deployment failed และนี่คือ log ที่ได้จาก server ที่เก็บมาครับ /docs/deploy/deploy-logs.md อ่านและวิเคราะห์ 
- - สาเหตุเกิดจากอะไร (เป็นเพราะรวมเอา expo app เข้าไปตอน deploy ด้วยหรือเปล่า) 
- - แนวทางการแก้ไข 
- - วางแผนและแก้ไข 
- - รักษา scope ของการแก้ไขให้เป็นไปตาม logs error ก่อน 
- - ถ้าสาเหตุคือการรวมเอา mobile depencendies เข้าไปด้วย เราสามารถ แยกได้หรือไม่ยังไง 
- - และบอกหน่อยว่า config ผมถูกต้องหรือไม่ 
- - build command 
- - pre-deploy command 
- - start command 
- เหล่านี้ใน Render config setting ต้องตั้งยังไง
+ตอนนี้เหมือว่าการ deployment จะราบรื่นดี แต่ติดที่ .env configuration ครับ นี่คือ log ที่ผมเก็บมา /docs/deploy/deploy-logs.md อ่านแล้ววิเคราะห์ จากนนั้นวางแผนแก้ไขปัญหา step by step 
+ - เอา ข้อมูลจาก .env.server ไปไว้ใน .env เลยได้หรือไม่ มี sensitive data 
+ ที่อาจจะมีปัญหาบน mobile app หรือไม่ 
+ - ถ้าไม่สามารถ รวม .env ได้ให้ ช่วยหาวิธีในการ จัดการ อย่างมีประสิทธิภาพและ อยู่บน best practice ด้วยครับ 
+ - แก้ไขปัญหาใน scope เท่านั้นไม่ออกนอก scope และเพิ่ม feature โดยไม่จำเป็น
 
 ## Analysis Summary
 
-### Root Cause Analysis
+### Deploy Log Analysis
+- **Error**: `Cannot find module 'firebase/auth'` ใน `/opt/render/project/src/api/auth/login.js`
+- **Root Cause**: package-server.json มี `firebase-admin` แต่ไม่มี `firebase` client SDK
+- **Environment**: dotenv กำลังโหลด .env.server แต่มี (0) variables
 
-**Primary Issue**: JavaScript heap out of memory during build process
-- Error: `FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory`
-- Exit status: 134 (Aborted core dumped)
-- Port scan timeout: Failed to detect open port 3000
+### Environment Configuration Issues
+1. **.env.server** มี sensitive data ทั้งหมด (Firebase private keys, Stripe secret keys)
+2. **.env** ปัจจุบันมี sensitive data ที่ไม่ควรอยู่ใน mobile app
+3. **package-server.json** ขาด firebase client SDK dependencies
 
-**Secondary Issues**:
-1. **Mixed Dependencies**: Expo mobile dependencies included in server deployment
-2. **Incorrect Build Process**: Trying to build Expo app instead of server API
-3. **Wrong Start Command**: Running `expo start` instead of server
-4. **Tailwind CSS Warnings**: Unknown @tailwind rules in build process
+### Security Concerns
+- Firebase private keys และ Stripe secret keys ไม่ควรอยู่ใน mobile app
+- Mobile app ควรมีเฉพาะ public keys และ configuration ที่ปลอดภัย
 
-### Configuration Issues
-
-**Current Render Config Problems**:
-- `buildCommand: npm install && npm run build` - builds Expo app, not server
-- `startCommand: npm run start:prod` - correct but depends on wrong build
-- Missing memory allocation for Node.js heap
-- No separation between mobile and server dependencies
-
-### Recommended Solutions
-
-1. **Separate Server Dependencies**: Create dedicated package.json for server
-2. **Fix Build Commands**: Build only server-side code
-3. **Increase Memory Allocation**: Add Node.js memory flags
-4. **Remove Mobile Dependencies**: Exclude Expo/React Native from server build
-
-### Correct Render Configuration
-
-```yaml
-buildCommand: npm ci --only=production && npm run build:server
-startCommand: node --max-old-space-size=512 dist/server.js
-preDeployCommand: npm run lint:server
-```
-
-**Status**: Analysis Complete - Ready for Implementation Plan
+## Next Steps
+1. แยก environment variables ตาม environment (server vs mobile)
+2. แก้ไข package-server.json dependencies
+3. สร้าง proper environment separation strategy
+4. แก้ไข server code ให้ใช้ correct Firebase SDK
