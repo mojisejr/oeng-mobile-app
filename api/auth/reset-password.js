@@ -1,8 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
-// Removed firebase/auth client SDK - using firebase-admin instead
-const firebase_admin_1 = require("../../firebase-admin");
+const auth_1 = require("firebase/auth");
+const firebase_sdk_1 = require("../../firebase-sdk");
 const response_1 = require("../utils/response");
 async function handler(req, res) {
     (0, response_1.setCorsHeaders)(res);
@@ -22,13 +22,10 @@ async function handler(req, res) {
         if (!emailRegex.test(email)) {
             return (0, response_1.createErrorResponse)(res, 'Invalid email format', 400);
         }
-        // Generate password reset link using Firebase Admin SDK
-        const resetLink = await firebase_admin_1.adminAuth.generatePasswordResetLink(email, {
+        await (0, auth_1.sendPasswordResetEmail)(firebase_sdk_1.auth, email, {
             url: process.env.EXPO_PUBLIC_APP_URL || 'https://oeng-app.com',
+            handleCodeInApp: false,
         });
-        
-        // In a real implementation, you would send this link via email service
-        // For now, we'll just return success (the link would be sent via email)
         return (0, response_1.createSuccessResponse)(res, { email }, 'Password reset email sent successfully');
     }
     catch (error) {
