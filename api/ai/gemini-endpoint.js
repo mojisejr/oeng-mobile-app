@@ -1,5 +1,5 @@
 // Gemini API endpoint wrapper for Express.js
-const { analyzeEnglishSentence, AIAnalysisError } = require('./gemini.ts');
+const { analyzeEnglishSentence, AIAnalysisError } = require('./gemini.js');
 
 // CORS headers
 const corsHeaders = {

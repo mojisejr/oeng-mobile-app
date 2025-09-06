@@ -3,14 +3,16 @@ services:
     name: oeng-app-api
     env: node
     plan: free
-    buildCommand: npm install && npm run build
-    startCommand: npm run start:prod
+    buildCommand: cp package-server.json package.json && npm install --production
+    startCommand: node server.js
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 3000
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=512
       - key: FIREBASE_API_KEY
         sync: false
       - key: FIREBASE_AUTH_DOMAIN

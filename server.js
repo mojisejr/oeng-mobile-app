@@ -8,6 +8,12 @@ const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Production optimizations
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+  app.disable('x-powered-by');
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -23,33 +29,33 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API routes - Import Vercel functions
+// API routes - Import compiled JavaScript files
 const authRoutes = {
-  register: require('./api/auth/register.ts'),
-  login: require('./api/auth/login.ts'),
-  logout: require('./api/auth/logout.ts'),
-  'reset-password': require('./api/auth/reset-password.ts')
+  register: require('./api/auth/register.js'),
+  login: require('./api/auth/login.js'),
+  logout: require('./api/auth/logout.js'),
+  'reset-password': require('./api/auth/reset-password.js')
 };
 
 const sentenceRoutes = {
-  create: require('./api/sentences/create.ts'),
-  list: require('./api/sentences/list.ts'),
-  get: require('./api/sentences/get.ts'),
-  update: require('./api/sentences/update.ts'),
-  delete: require('./api/sentences/delete.ts'),
-  analyze: require('./api/sentences/analyze.ts')
+  create: require('./api/sentences/create.js'),
+  list: require('./api/sentences/list.js'),
+  get: require('./api/sentences/get.js'),
+  update: require('./api/sentences/update.js'),
+  delete: require('./api/sentences/delete.js'),
+  analyze: require('./api/sentences/analyze.js')
 };
 
 const creditRoutes = {
-  balance: require('./api/credits/balance.ts'),
-  history: require('./api/credits/history.ts')
+  balance: require('./api/credits/balance.js'),
+  history: require('./api/credits/history.js')
 };
 
 const aiRoutes = {
   gemini: require('./api/ai/gemini-endpoint.js')
 };
 
-const healthRoute = require('./api/health.ts');
+const healthRoute = require('./api/health.js');
 
 // Mount auth routes
 Object.keys(authRoutes).forEach(route => {
@@ -126,6 +132,24 @@ app.use((req, res) => {
 // Error handler
 app.use((err, req, res, next) => {
   console.error('Server error:', err);
+  
+  // Handle specific error types
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({
+      success: false,
+      error: 'Payload too large',
+      message: 'Request body exceeds size limit'
+    });
+  }
+  
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({
+      success: false,
+      error: 'Validation error',
+      message: err.message
+    });
+  }
+  
   res.status(500).json({
     success: false,
     error: 'Internal server error',
@@ -133,12 +157,30 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Graceful shutdown handling
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully');
+  process.exit(0);
+});
+
 // Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`🚀 AI English Coach API running on port ${PORT}`);
   console.log(`📍 Health check: http://localhost:${PORT}/api/health`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`💾 Memory limit: ${process.env.NODE_OPTIONS || 'default'}`);
   console.log(`⏰ Started at: ${new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })} (Thailand time)`);
+});
+
+// Handle server errors
+server.on('error', (err) => {
+  console.error('Server failed to start:', err);
+  process.exit(1);
 });
 
 module.exports = app;

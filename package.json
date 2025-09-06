@@ -4,8 +4,9 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
-    "start:prod": "ts-node --project tsconfig.server.json server.js",
-    "build": "npm install && npm run lint",
+    "start:prod": "npm run build && node server.js",
+    "build": "tsc --project tsconfig.server.json",
+    "build:server": "cp package-server.json package.json && npm install --production",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
