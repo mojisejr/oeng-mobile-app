@@ -5,6 +5,7 @@ import { useThemeColor } from "@/hooks/useThemeColor";
 export type ThemedTextProps = TextProps & {
   lightColor?: string;
   darkColor?: string;
+  className?: string; // Support for Nativewind className
   type?: 
     | "default" 
     | "title" 
@@ -27,33 +28,40 @@ export function ThemedText({
   lightColor,
   darkColor,
   type = "default",
+  className,
   ...rest
 }: ThemedTextProps) {
   const color = useThemeColor({ light: lightColor, dark: darkColor }, "text");
 
-  return (
-    <Text
-      style={[
-        { color },
-        type === "default" ? styles.default : undefined,
-        type === "title" ? styles.title : undefined,
-        type === "defaultSemiBold" ? styles.defaultSemiBold : undefined,
-        type === "subtitle" ? styles.subtitle : undefined,
-        type === "link" ? styles.link : undefined,
-        type === "heading1" ? styles.heading1 : undefined,
-        type === "heading2" ? styles.heading2 : undefined,
-        type === "heading3" ? styles.heading3 : undefined,
-        type === "body" ? styles.body : undefined,
-        type === "caption" ? styles.caption : undefined,
-        type === "overline" ? styles.overline : undefined,
-        type === "error" ? styles.error : undefined,
-        type === "success" ? styles.success : undefined,
-        type === "warning" ? styles.warning : undefined,
-        style,
-      ]}
-      {...rest}
-    />
-  );
+  // Support both traditional styles and Nativewind className
+  const textProps: any = {
+    style: [
+      { color: className ? undefined : color }, // Don't override color if using className
+      type === "default" ? styles.default : undefined,
+      type === "title" ? styles.title : undefined,
+      type === "defaultSemiBold" ? styles.defaultSemiBold : undefined,
+      type === "subtitle" ? styles.subtitle : undefined,
+      type === "link" ? styles.link : undefined,
+      type === "heading1" ? styles.heading1 : undefined,
+      type === "heading2" ? styles.heading2 : undefined,
+      type === "heading3" ? styles.heading3 : undefined,
+      type === "body" ? styles.body : undefined,
+      type === "caption" ? styles.caption : undefined,
+      type === "overline" ? styles.overline : undefined,
+      type === "error" ? styles.error : undefined,
+      type === "success" ? styles.success : undefined,
+      type === "warning" ? styles.warning : undefined,
+      style,
+    ],
+    ...rest
+  };
+
+  // Add className if provided (for Nativewind support)
+  if (className) {
+    textProps.className = className;
+  }
+
+  return <Text {...textProps} />;
 }
 
 const styles = StyleSheet.create({

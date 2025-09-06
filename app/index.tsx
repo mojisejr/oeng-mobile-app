@@ -1,8 +1,30 @@
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { ScrollView, StyleSheet } from "react-native";
+import { NativewindTest } from "@/components/NativewindTest";
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
+import { useState } from "react";
 
 export default function MainScreen() {
+  const [showNativewindTest, setShowNativewindTest] = useState(false);
+
+  if (showNativewindTest) {
+    return (
+      <View className="flex-1">
+        <View className="bg-white dark:bg-gray-800 p-4 pt-12 border-b border-gray-200 dark:border-gray-700">
+          <TouchableOpacity 
+            className="bg-blue-500 px-4 py-2 rounded-lg"
+            onPress={() => setShowNativewindTest(false)}
+          >
+            <Text className="text-white font-medium text-center">
+              ← Back to Main Screen
+            </Text>
+          </TouchableOpacity>
+        </View>
+        <NativewindTest />
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container}>
       <ThemedView style={styles.content}>
@@ -13,6 +35,18 @@ export default function MainScreen() {
           <ThemedText type="subtitle" style={styles.subtitle}>
             Welcome to your mobile application
           </ThemedText>
+        </ThemedView>
+
+        {/* Nativewind Test Button */}
+        <ThemedView style={styles.section}>
+          <TouchableOpacity 
+            className="bg-purple-500 p-4 rounded-lg mb-4"
+            onPress={() => setShowNativewindTest(true)}
+          >
+            <Text className="text-white font-bold text-center text-lg">
+              🧪 Test Nativewind Configuration
+            </Text>
+          </TouchableOpacity>
         </ThemedView>
 
         <ThemedView style={styles.section}>
