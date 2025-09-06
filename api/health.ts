@@ -1,14 +1,22 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
+import { IncomingMessage, ServerResponse } from 'http';
 import { adminDb } from '../firebase-admin';
 import { setCorsHeaders } from './utils/response';
+import { RenderRequest, RenderResponse, enhanceResponse, parseQuery } from './types/render';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: IncomingMessage, res: ServerResponse) {
+  const request = req as RenderRequest;
+  const response = enhanceResponse(res);
+  
+  // Parse query parameters
+  if (request.url) {
+    request.query = parseQuery(request.url);
+  }
   // Set CORS headers
-  setCorsHeaders(res);
+  setCorsHeaders(response);
 
   // Only allow GET method
-  if (req.method !== 'GET') {
-    return res.status(405).json({
+  if (request.method !== 'GET') {
+    return response.status(405).json({
       success: false,
       error: 'Method not allowed. Use GET.'
     });
@@ -57,7 +65,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const statusCode = isHealthy ? 200 : 503;
 
-    return res.status(statusCode).json({
+    return response.status(statusCode).json({
       success: isHealthy,
       status: isHealthy ? 'healthy' : 'unhealthy',
       timestamp,
@@ -83,7 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (error) {
     console.error('Health check error:', error);
     
-    return res.status(503).json({
+    return response.status(503).json({
       success: false,
       status: 'unhealthy',
       error: error instanceof Error ? error.message : 'Unknown health check error',

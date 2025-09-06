@@ -3,41 +3,73 @@ services:
     name: oeng-app-api
     env: node
     plan: free
-    buildCommand: npm install
-    startCommand: npm start
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:prod
     healthCheckPath: /api/health
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 3000
+      - key: FIREBASE_API_KEY
+        sync: false
+      - key: FIREBASE_AUTH_DOMAIN
+        sync: false
       - key: FIREBASE_PROJECT_ID
-        fromDatabase:
-          name: oeng-app-secrets
-          property: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_STORAGE_BUCKET
+        sync: false
+      - key: FIREBASE_MESSAGING_SENDER_ID
+        sync: false
+      - key: FIREBASE_APP_ID
+        sync: false
+      - key: FIREBASE_MEASUREMENT_ID
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY_ID
+        sync: false
       - key: FIREBASE_PRIVATE_KEY
-        fromDatabase:
-          name: oeng-app-secrets
-          property: FIREBASE_PRIVATE_KEY
+        sync: false
       - key: FIREBASE_CLIENT_EMAIL
-        fromDatabase:
-          name: oeng-app-secrets
-          property: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_CLIENT_ID
+        sync: false
+      - key: FIREBASE_AUTH_URI
+        sync: false
+      - key: FIREBASE_TOKEN_URI
+        sync: false
+      - key: FIREBASE_AUTH_PROVIDER_X509_CERT_URL
+        sync: false
+      - key: FIREBASE_CLIENT_X509_CERT_URL
+        sync: false
       - key: GOOGLE_GENERATIVE_AI_API_KEY
-        fromDatabase:
-          name: oeng-app-secrets
-          property: GOOGLE_GENERATIVE_AI_API_KEY
+        sync: false
+      - key: STRIPE_PUBLISHABLE_KEY
+        sync: false
       - key: STRIPE_SECRET_KEY
-        fromDatabase:
-          name: oeng-app-secrets
-          property: STRIPE_SECRET_KEY
+        sync: false
       - key: STRIPE_WEBHOOK_SECRET
-        fromDatabase:
-          name: oeng-app-secrets
-          property: STRIPE_WEBHOOK_SECRET
+        sync: false
     autoDeploy: true
     branch: main
     rootDir: .
+    buildFilter:
+      paths:
+        - api/**
+        - package.json
+        - package-lock.json
+        - tsconfig.json
+        - firebase-admin.ts
+        - render.yaml
+    headers:
+      - path: /api/*
+        name: Access-Control-Allow-Origin
+        value: "*"
+      - path: /api/*
+        name: Access-Control-Allow-Methods
+        value: "GET, POST, PUT, DELETE, OPTIONS"
+      - path: /api/*
+        name: Access-Control-Allow-Headers
+        value: "Content-Type, Authorization"
     
-databases:
-  - name: oeng-app-secrets
-    databaseName: oeng-app-secrets
-    user: admin
+# Note: Environment variables should be configured in Render Dashboard
+# This file defines the service configuration for deployment

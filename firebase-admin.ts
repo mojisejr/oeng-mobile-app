@@ -14,8 +14,20 @@ if (!getApps().length) {
     auth_uri: 'https://accounts.google.com/o/oauth2/auth',
     token_uri: 'https://oauth2.googleapis.com/token',
     auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs',
-    client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${process.env.FIREBASE_CLIENT_EMAIL}`
+    client_x509_cert_url: `https://www.googleapis.com/robot/v1/metadata/x509/${process.env.FIREBASE_CLIENT_EMAIL}`,
+    universe_domain: 'googleapis.com'
   };
+
+  // Debug logging for missing environment variables
+  if (!process.env.FIREBASE_PRIVATE_KEY) {
+    console.error('Missing FIREBASE_PRIVATE_KEY environment variable');
+  }
+  if (!process.env.FIREBASE_CLIENT_EMAIL) {
+    console.error('Missing FIREBASE_CLIENT_EMAIL environment variable');
+  }
+  if (!process.env.FIREBASE_PROJECT_ID) {
+    console.error('Missing FIREBASE_PROJECT_ID environment variable');
+  }
 
   initializeApp({
     credential: cert(serviceAccount as any),

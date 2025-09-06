@@ -1,20 +1,23 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
+import { IncomingMessage, ServerResponse } from 'http';
+import { RenderRequest, RenderResponse, enhanceResponse } from '../types/render';
 import { adminAuth, adminDb } from '../../firebase-admin';
 import { setCorsHeaders, handleOptionsRequest } from '../utils/response';
 import { COLLECTION_PATHS } from '../utils/db-schema';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: IncomingMessage, res: ServerResponse) {
+  const request = req as RenderRequest;
+  const response = enhanceResponse(res);
   // Handle CORS
-  if (req.method === 'OPTIONS') {
-    return handleOptionsRequest(res);
+  if (request.method === 'OPTIONS') {
+    return handleOptionsRequest(response);
   }
 
   // Set CORS headers
-  setCorsHeaders(res);
+  setCorsHeaders(response);
 
   // Only allow GET method
-  if (req.method !== 'GET') {
-    return res.status(405).json({
+  if (request.method !== 'GET') {
+    return response.status(405).json({
       success: false,
       error: 'Method not allowed. Use GET.'
     });
@@ -22,9 +25,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     // Get authorization header
-    const authHeader = req.headers.authorization;
+    const authHeader = request.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
+      return response.status(401).json({
         success: false,
         error: 'Authorization header required'
       });
@@ -37,7 +40,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       decodedToken = await adminAuth.verifyIdToken(token);
     } catch (authError) {
       console.error('Auth verification failed:', authError);
-      return res.status(401).json({
+      return response.status(401).json({
         success: false,
         error: 'Invalid or expired token'
       });
@@ -49,7 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const userDoc = await adminDb.collection(COLLECTION_PATHS.USERS).doc(userId).get();
 
     if (!userDoc.exists) {
-      return res.status(404).json({
+      return response.status(404).json({
         success: false,
         error: 'User not found'
       });
@@ -57,7 +60,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const userData = userDoc.data();
     if (!userData) {
-      return res.status(404).json({
+      return response.status(404).json({
         success: false,
         error: 'User data not found'
       });
@@ -68,7 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const totalCreditsPurchased = userData.totalCreditsPurchased || 0;
 
     // Return credit balance and statistics
-    return res.status(200).json({
+    return response.status(200).json({
       success: true,
       data: {
         creditBalance,
@@ -86,21 +89,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Handle Firestore errors
     if (error instanceof Error) {
       if (error.message.includes('permission-denied')) {
-        return res.status(403).json({
+        return response.status(403).json({
           success: false,
           error: 'Permission denied. Please check your authentication.'
         });
       }
 
       if (error.message.includes('not-found')) {
-        return res.status(404).json({
+        return response.status(404).json({
           success: false,
           error: 'Resource not found'
         });
       }
 
       if (error.message.includes('network')) {
-        return res.status(503).json({
+        return response.status(503).json({
           success: false,
           error: 'Network error. Please try again.'
         });
@@ -108,7 +111,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Generic server error
-    return res.status(500).json({
+    return response.status(500).json({
       success: false,
       error: 'Internal server error. Please try again.'
     });

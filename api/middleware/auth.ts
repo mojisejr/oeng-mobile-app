@@ -1,5 +1,6 @@
 // Authentication middleware for API routes
 
+import { adminAuth } from "../../firebase-admin";
 import { createErrorResponse } from "../utils/response";
 
 export interface AuthenticatedRequest {
@@ -22,21 +23,18 @@ export function extractBearerToken(authHeader?: string): string | null {
 }
 
 export async function verifyToken(token: string): Promise<any> {
-  // TODO: Implement JWT token verification
-  // This is a placeholder for token verification logic
-  // You would typically use a library like 'jsonwebtoken' here
-
   try {
-    // Placeholder verification
-    if (token === "valid-token") {
-      return {
-        id: "user-123",
-        email: "user@example.com",
-        role: "user",
-      };
-    }
-    return null;
+    // Verify Firebase ID token using Admin SDK
+    const decodedToken = await adminAuth.verifyIdToken(token);
+    
+    return {
+      id: decodedToken.uid,
+      email: decodedToken.email || '',
+      role: decodedToken.role || 'user',
+      uid: decodedToken.uid,
+    };
   } catch (error) {
+    console.error('Token verification error:', error);
     return null;
   }
 }
@@ -49,13 +47,13 @@ export async function requireAuth(
   const token = extractBearerToken(authHeader);
 
   if (!token) {
-    res.status(401).json(createErrorResponse("Authorization token required"));
+    createErrorResponse(res, "Authorization token required", 401);
     return false;
   }
 
   const user = await verifyToken(token);
   if (!user) {
-    res.status(401).json(createErrorResponse("Invalid or expired token"));
+    createErrorResponse(res, "Invalid or expired token", 401);
     return false;
   }
 
@@ -66,12 +64,12 @@ export async function requireAuth(
 export function requireRole(allowedRoles: string[]) {
   return (req: AuthenticatedRequest, res: any): boolean => {
     if (!req.user) {
-      res.status(401).json(createErrorResponse("Authentication required"));
+      createErrorResponse(res, "Authentication required", 401);
       return false;
     }
 
     if (!allowedRoles.includes(req.user.role || "user")) {
-      res.status(403).json(createErrorResponse("Insufficient permissions"));
+      createErrorResponse(res, "Insufficient permissions", 403);
       return false;
     }
 

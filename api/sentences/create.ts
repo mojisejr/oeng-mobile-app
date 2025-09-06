@@ -1,6 +1,7 @@
-import { auth, db } from '../../firebase-sdk';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { adminDb } from '../../firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { createSuccessResponse, createErrorResponse, setCorsHeaders, handleOptionsRequest, validateRequiredFields } from '../utils/response';
+import { verifyToken } from '../middleware/auth';
 import { COLLECTION_PATHS, DEFAULT_VALUES, VALIDATION_RULES } from '../utils/db-schema';
 import type { SentenceDocument } from '../utils/db-schema';
 
@@ -17,19 +18,17 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    // Get user ID from Authorization header
+    // Extract and verify token
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return createErrorResponse(res, 'Authorization token required', 401);
     }
 
     const token = authHeader.split(' ')[1];
-    // Note: In a real implementation, you would verify the Firebase ID token here
-    // For now, we'll extract userId from the token (this is simplified)
-    const userId = req.headers['x-user-id']; // Temporary solution
+    const user = await verifyToken(token);
     
-    if (!userId) {
-      return createErrorResponse(res, 'User ID required', 401);
+    if (!user) {
+      return createErrorResponse(res, 'Invalid or expired token', 401);
     }
 
     const { englishSentence, userTranslation, context } = req.body;
@@ -89,16 +88,16 @@ export default async function handler(req: any, res: any) {
 
     // Create sentence document
     const sentenceData: any = {
-      userId,
+      userId: user.uid,
       englishSentence: englishSentence.trim(),
       userTranslation: userTranslation?.trim() || undefined,
       context: context?.trim() || undefined,
       ...DEFAULT_VALUES.SENTENCE,
-      createdAt: serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     };
 
-    // Add to Firestore
-    const docRef = await addDoc(collection(db, COLLECTION_PATHS.SENTENCES), sentenceData);
+    // Add to Firestore using Admin SDK
+    const docRef = await adminDb.collection(COLLECTION_PATHS.SENTENCES).add(sentenceData);
 
     // Return success response with created sentence data
     const responseData = {
