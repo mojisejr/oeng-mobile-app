@@ -12,6 +12,7 @@ export type ThemedViewProps = ViewProps & {
   flex?: boolean;
   center?: boolean;
   row?: boolean;
+  className?: string; // Support for Nativewind className
 };
 
 export function ThemedView({ 
@@ -25,29 +26,36 @@ export function ThemedView({
   flex,
   center,
   row,
+  className,
   ...otherProps 
 }: ThemedViewProps) {
   const backgroundColor = useThemeColor({ light: lightColor, dark: darkColor }, 'background');
 
-  return (
-    <View 
-      style={[
-        { backgroundColor },
-        variant === 'card' ? styles.card : undefined,
-        variant === 'container' ? styles.container : undefined,
-        variant === 'surface' ? styles.surface : undefined,
-        variant === 'elevated' ? styles.elevated : undefined,
-        spacing ? styles[`spacing_${spacing}`] : undefined,
-        padding ? styles[`padding_${padding}`] : undefined,
-        margin ? styles[`margin_${margin}`] : undefined,
-        flex ? styles.flex : undefined,
-        center ? styles.center : undefined,
-        row ? styles.row : undefined,
-        style
-      ]} 
-      {...otherProps} 
-    />
-  );
+  // Support both traditional styles and Nativewind className
+  const viewProps: any = {
+    style: [
+      { backgroundColor: className ? undefined : backgroundColor }, // Don't override backgroundColor if using className
+      variant === 'card' ? styles.card : undefined,
+      variant === 'container' ? styles.container : undefined,
+      variant === 'surface' ? styles.surface : undefined,
+      variant === 'elevated' ? styles.elevated : undefined,
+      spacing ? styles[`spacing_${spacing}`] : undefined,
+      padding ? styles[`padding_${padding}`] : undefined,
+      margin ? styles[`margin_${margin}`] : undefined,
+      flex ? styles.flex : undefined,
+      center ? styles.center : undefined,
+      row ? styles.row : undefined,
+      style
+    ],
+    ...otherProps
+  };
+
+  // Add className if provided (for Nativewind support)
+  if (className) {
+    viewProps.className = className;
+  }
+
+  return <View {...viewProps} />;
 }
 
 const styles = StyleSheet.create({
