@@ -1,7 +1,9 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
+import { IncomingMessage, ServerResponse } from 'http';
+import { RenderRequest, RenderResponse, enhanceResponse, parseRequestBody } from '../types/render';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth, db } from '../../firebase-sdk';
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { auth } from '../../firebase-sdk';
+import { adminDb } from '../../firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { createSuccessResponse, createErrorResponse, setCorsHeaders, handleOptionsRequest, validateRequiredFields } from '../utils/response';
 import { COLLECTION_PATHS, DEFAULT_VALUES, ERROR_CODES } from '../utils/db-schema';
 import type { UserDocument } from '../utils/db-schema';
@@ -11,49 +13,61 @@ interface LoginRequest {
   password: string;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: IncomingMessage, res: ServerResponse) {
+  const request = req as RenderRequest;
+  const response = enhanceResponse(res);
   // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return handleOptionsRequest(res);
+  if (request.method === 'OPTIONS') {
+    return handleOptionsRequest(response);
   }
 
   // Set CORS headers
-  setCorsHeaders(res);
+  setCorsHeaders(response);
 
-  if (req.method !== 'POST') {
-    return createErrorResponse(res, 'Method not allowed', 405);
+  if (request.method !== 'POST') {
+    return createErrorResponse(response, 'Method not allowed', 405);
   }
 
   try {
+    // Parse request body
+    const body = await parseRequestBody(request);
+    
     // Validate required fields
-    const validation = validateRequiredFields(req.body, ['email', 'password']);
+    const validation = validateRequiredFields(body, ['email', 'password']);
     if (!validation.isValid) {
       return createErrorResponse(
-        res,
+        response,
         `Missing required fields: ${validation.missingFields.join(', ')}`,
         400
       );
     }
 
-    const { email, password }: LoginRequest = req.body;
+    const { email, password }: LoginRequest = body;
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      return createErrorResponse(res, 'Invalid email format', 400);
+      return createErrorResponse(response, 'Invalid email format', 400);
     }
 
     // Sign in with Firebase Auth
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Get or create user document in Firestore
-    const userDocRef = doc(db, COLLECTION_PATHS.USERS, user.uid);
-    const userDocSnap = await getDoc(userDocRef);
+    if (!user) {
+      return createErrorResponse(response, 'Authentication failed', 401, ERROR_CODES.UNAUTHORIZED);
+    }
+
+    // Get Firebase ID token
+    const idToken = await user.getIdToken();
+
+    // Get or create user document in Firestore using Admin SDK
+    const userDocRef = adminDb.collection(COLLECTION_PATHS.USERS).doc(user.uid);
+    const userDocSnap = await userDocRef.get();
 
     let userData: any;
 
-    if (!userDocSnap.exists()) {
+    if (!userDocSnap.exists) {
       // Create new user document if it doesn't exist
       const newUserData: any = {
         uid: user.uid,
@@ -62,16 +76,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ...DEFAULT_VALUES.USER,
         photoURL: user.photoURL,
         emailVerified: user.emailVerified,
-        createdAt: serverTimestamp(),
-        lastLoginAt: serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+        lastLoginAt: FieldValue.serverTimestamp(),
       };
 
-      await setDoc(userDocRef, newUserData);
+      await userDocRef.set(newUserData);
       userData = { id: user.uid, ...newUserData };
     } else {
       // Update last login time for existing user
-      await updateDoc(userDocRef, {
-        lastLoginAt: serverTimestamp(),
+      await userDocRef.update({
+        lastLoginAt: FieldValue.serverTimestamp(),
         emailVerified: user.emailVerified, // Update email verification status
       });
 
@@ -87,9 +101,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       emailVerified: userData.emailVerified,
       credits: userData.credits,
       lastLoginAt: userData.lastLoginAt,
+      idToken: idToken, // Include Firebase ID token for API authentication
     };
 
-    return createSuccessResponse(res, responseData, 'Login successful');
+    return createSuccessResponse(response, responseData, 'Login successful');
   } catch (error: any) {
     console.error('Login error:', error);
     
@@ -99,23 +114,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         case 'auth/user-not-found':
         case 'auth/wrong-password':
         case 'auth/invalid-credential':
-          return createErrorResponse(res, 'Invalid email or password', 401);
+          return createErrorResponse(response, 'Invalid email or password', 401);
         case 'auth/user-disabled':
-          return createErrorResponse(res, 'User account has been disabled', 403);
+          return createErrorResponse(response, 'User account has been disabled', 403);
         case 'auth/too-many-requests':
-          return createErrorResponse(res, 'Too many failed attempts. Please try again later', 429);
+          return createErrorResponse(response, 'Too many failed attempts. Please try again later', 429);
         case 'auth/network-request-failed':
-          return createErrorResponse(res, 'Network error. Please try again', 500);
+          return createErrorResponse(response, 'Network error. Please try again', 500);
         default:
-          return createErrorResponse(res, `Authentication error: ${error.message}`, 500);
+          return createErrorResponse(response, `Authentication error: ${error.message}`, 500);
       }
     }
 
     // Handle Firestore errors
     if (error.message?.includes('firestore')) {
-      return createErrorResponse(res, 'Database error. Please try again', 500);
+      return createErrorResponse(response, 'Database error. Please try again', 500);
     }
 
-    return createErrorResponse(res, 'Login failed. Please try again', 500);
+    return createErrorResponse(response, 'Login failed. Please try again', 500);
   }
 }

@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OENG App - Health Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 12px;
+        }
+        
+        .status-healthy {
+            background: #10b981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+        }
+        
+        .status-unhealthy {
+            background: #ef4444;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+        }
+        
+        .status-unknown {
+            background: #6b7280;
+            box-shadow: 0 0 0 3px rgba(107, 114, 128, 0.2);
+        }
+        
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .card-content {
+            color: #6b7280;
+        }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .metric-label {
+            font-weight: 500;
+        }
+        
+        .metric-value {
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 0.9rem;
+        }
+        
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            background: white;
+            color: #667eea;
+            border: 2px solid white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 0 8px;
+            transition: all 0.2s ease;
+        }
+        
+        .btn:hover {
+            background: transparent;
+            color: white;
+        }
+        
+        .auto-refresh {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            margin-top: 10px;
+        }
+        
+        .auto-refresh input {
+            margin: 0 8px;
+        }
+        
+        .logs {
+            background: #1f2937;
+            border-radius: 12px;
+            padding: 20px;
+            color: #e5e7eb;
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 0.9rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .log-entry {
+            margin-bottom: 4px;
+            padding: 2px 0;
+        }
+        
+        .log-timestamp {
+            color: #9ca3af;
+        }
+        
+        .log-level-INFO {
+            color: #10b981;
+        }
+        
+        .log-level-WARN {
+            color: #f59e0b;
+        }
+        
+        .log-level-ERROR {
+            color: #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏥 OENG App Health Dashboard</h1>
+            <p>Real-time monitoring for AI English Coach API</p>
+        </div>
+        
+        <div class="controls">
+            <button class="btn" onclick="checkHealth()">🔄 Refresh Now</button>
+            <button class="btn" onclick="clearLogs()">🗑️ Clear Logs</button>
+            
+            <div class="auto-refresh">
+                <label>
+                    <input type="checkbox" id="autoRefresh" onchange="toggleAutoRefresh()">
+                    Auto-refresh every
+                </label>
+                <select id="refreshInterval">
+                    <option value="5">5 seconds</option>
+                    <option value="10">10 seconds</option>
+                    <option value="30" selected>30 seconds</option>
+                    <option value="60">1 minute</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="dashboard" id="dashboard">
+            <!-- Cards will be populated by JavaScript -->
+        </div>
+        
+        <div class="logs" id="logs">
+            <div class="log-entry">📊 Health Dashboard initialized...</div>
+        </div>
+    </div>
+    
+    <script>
+        let autoRefreshInterval = null;
+        let healthData = null;
+        
+        // Configuration
+        const API_BASE_URL = window.location.hostname === 'localhost' 
+            ? 'http://localhost:3000' 
+            : window.location.origin;
+        
+        function log(message, level = 'INFO') {
+            const timestamp = new Date().toLocaleString('th-TH', {
+                timeZone: 'Asia/Bangkok',
+                hour12: false
+            });
+            
+            const logsContainer = document.getElementById('logs');
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `
+                <span class="log-timestamp">[${timestamp}]</span>
+                <span class="log-level-${level}">[${level}]</span>
+                ${message}
+            `;
+            
+            logsContainer.appendChild(logEntry);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+            
+            // Keep only last 100 log entries
+            const entries = logsContainer.children;
+            if (entries.length > 100) {
+                logsContainer.removeChild(entries[0]);
+            }
+        }
+        
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+            log('📊 Logs cleared');
+        }
+        
+        async function checkHealth() {
+            try {
+                log('🔍 Checking health status...');
+                
+                const response = await fetch(`${API_BASE_URL}/api/health`);
+                const data = await response.json();
+                
+                healthData = data;
+                updateDashboard(data);
+                
+                if (data.success) {
+                    log('✅ Health check completed - Service is healthy');
+                } else {
+                    log('⚠️ Health check completed - Service has issues', 'WARN');
+                }
+                
+            } catch (error) {
+                log(`❌ Health check failed: ${error.message}`, 'ERROR');
+                updateDashboard(null);
+            }
+        }
+        
+        function updateDashboard(data) {
+            const dashboard = document.getElementById('dashboard');
+            
+            if (!data) {
+                dashboard.innerHTML = `
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="status-indicator status-unknown"></div>
+                            <h3 class="card-title">Service Unavailable</h3>
+                        </div>
+                        <div class="card-content">
+                            <p>Unable to connect to the API server.</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            const overallStatus = data.success ? 'healthy' : 'unhealthy';
+            const statusClass = data.success ? 'status-healthy' : 'status-unhealthy';
+            
+            dashboard.innerHTML = `
+                <div class="card">
+                    <div class="card-header">
+                        <div class="status-indicator ${statusClass}"></div>
+                        <h3 class="card-title">Overall Status</h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="metric">
+                            <span class="metric-label">Status:</span>
+                            <span class="metric-value">${data.status}</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Version:</span>
+                            <span class="metric-value">${data.version}</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Thailand Time:</span>
+                            <span class="metric-value">${data.thailandTime}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="status-indicator ${data.services?.firebase?.status === 'connected' ? 'status-healthy' : 'status-unhealthy'}"></div>
+                        <h3 class="card-title">Firebase Database</h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="metric">
+                            <span class="metric-label">Status:</span>
+                            <span class="metric-value">${data.services?.firebase?.status || 'unknown'}</span>
+                        </div>
+                        ${data.services?.firebase?.error ? `
+                            <div class="metric">
+                                <span class="metric-label">Error:</span>
+                                <span class="metric-value" style="color: #ef4444;">${data.services.firebase.error}</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="status-indicator ${data.services?.environment?.status === 'configured' ? 'status-healthy' : 'status-unhealthy'}"></div>
+                        <h3 class="card-title">Environment</h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="metric">
+                            <span class="metric-label">Status:</span>
+                            <span class="metric-value">${data.services?.environment?.status || 'unknown'}</span>
+                        </div>
+                        ${data.services?.environment?.variables ? Object.entries(data.services.environment.variables).map(([key, value]) => `
+                            <div class="metric">
+                                <span class="metric-label">${key}:</span>
+                                <span class="metric-value">${value}</span>
+                            </div>
+                        `).join('') : ''}
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <div class="status-indicator status-healthy"></div>
+                        <h3 class="card-title">Deployment</h3>
+                    </div>
+                    <div class="card-content">
+                        <div class="metric">
+                            <span class="metric-label">Platform:</span>
+                            <span class="metric-value">${data.deployment?.platform || 'unknown'}</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Service:</span>
+                            <span class="metric-value">${data.deployment?.service || 'unknown'}</span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">Region:</span>
+                            <span class="metric-value">${data.deployment?.region || 'unknown'}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function toggleAutoRefresh() {
+            const checkbox = document.getElementById('autoRefresh');
+            const interval = parseInt(document.getElementById('refreshInterval').value);
+            
+            if (checkbox.checked) {
+                autoRefreshInterval = setInterval(checkHealth, interval * 1000);
+                log(`🔄 Auto-refresh enabled (${interval}s interval)`);
+            } else {
+                if (autoRefreshInterval) {
+                    clearInterval(autoRefreshInterval);
+                    autoRefreshInterval = null;
+                }
+                log('⏸️ Auto-refresh disabled');
+            }
+        }
+        
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', () => {
+            log('🚀 Health Dashboard loaded');
+            checkHealth();
+        });
+    </script>
+</body>
+</html>

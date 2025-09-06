@@ -1,22 +1,37 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
+import { IncomingMessage, ServerResponse } from 'http';
+import { RenderRequest, RenderResponse, enhanceResponse, parseRequestBody } from '../types/render';
 import { adminAuth, adminDb } from '../../firebase-admin';
 import { analyzeEnglishSentence, AIAnalysisError } from '../ai/gemini';
 import { setCorsHeaders, handleOptionsRequest } from '../utils/response';
 import { COLLECTION_PATHS } from '../utils/db-schema';
 import { deductCredits } from '../utils/credit-operations';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: IncomingMessage, res: ServerResponse) {
+  const request = req as RenderRequest;
+  const response = enhanceResponse(res);
+  
+  // Parse request body
+  if (request.method === 'POST') {
+    try {
+      request.body = await parseRequestBody(request);
+    } catch (error) {
+      return response.status(400).json({
+        success: false,
+        error: 'Invalid JSON in request body'
+      });
+    }
+  }
   // Handle CORS
-  if (req.method === 'OPTIONS') {
-    return handleOptionsRequest(res);
+  if (request.method === 'OPTIONS') {
+    return handleOptionsRequest(response);
   }
 
   // Set CORS headers
-  setCorsHeaders(res);
+  setCorsHeaders(response);
 
   // Only allow POST method
-  if (req.method !== 'POST') {
-    return res.status(405).json({
+  if (request.method !== 'POST') {
+    return response.status(405).json({
       success: false,
       error: 'Method not allowed. Use POST.'
     });
@@ -24,9 +39,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     // Get authorization header
-    const authHeader = req.headers.authorization;
+    const authHeader = request.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({
+      return response.status(401).json({
         success: false,
         error: 'Authorization header required'
       });
@@ -39,7 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       decodedToken = await adminAuth.verifyIdToken(token);
     } catch (authError) {
       console.error('Auth verification failed:', authError);
-      return res.status(401).json({
+      return response.status(401).json({
         success: false,
         error: 'Invalid or expired token'
       });
@@ -48,10 +63,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const userId = decodedToken.uid;
 
     // Validate request body
-    const { sentenceId } = req.body;
+    const { sentenceId } = request.body;
 
     if (!sentenceId) {
-      return res.status(400).json({
+      return response.status(400).json({
         success: false,
         error: 'Sentence ID is required'
       });
@@ -61,7 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const sentenceDoc = await adminDb.collection(COLLECTION_PATHS.SENTENCES).doc(sentenceId).get();
 
     if (!sentenceDoc.exists) {
-      return res.status(404).json({
+      return response.status(404).json({
         success: false,
         error: 'Sentence not found'
       });
@@ -69,7 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const sentenceData = sentenceDoc.data();
     if (!sentenceData) {
-      return res.status(404).json({
+      return response.status(404).json({
         success: false,
         error: 'Sentence data not found'
       });
@@ -77,7 +92,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Check if user owns this sentence
     if (sentenceData.userId !== userId) {
-      return res.status(403).json({
+      return response.status(403).json({
         success: false,
         error: 'Access denied. You can only analyze your own sentences.'
       });
@@ -85,7 +100,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Check if sentence is already analyzed
     if (sentenceData.status === 'analyzed') {
-      return res.status(400).json({
+      return response.status(400).json({
         success: false,
         error: 'Sentence has already been analyzed'
       });
@@ -95,7 +110,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const userDoc = await adminDb.collection(COLLECTION_PATHS.USERS).doc(userId).get();
 
     if (!userDoc.exists) {
-      return res.status(404).json({
+      return response.status(404).json({
         success: false,
         error: 'User not found'
       });
@@ -103,7 +118,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const userData = userDoc.data();
     if (!userData) {
-      return res.status(404).json({
+      return response.status(404).json({
         success: false,
         error: 'User data not found'
       });
@@ -111,7 +126,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const currentCredits = userData.creditBalance || 0;
 
     if (currentCredits < 1) {
-      return res.status(402).json({
+      return response.status(402).json({
         success: false,
         error: 'Insufficient credits. Please purchase more credits to continue.',
         code: 'INSUFFICIENT_CREDITS'
@@ -135,7 +150,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       );
 
       if (!creditResult.success) {
-        return res.status(402).json({
+        return response.status(402).json({
           success: false,
           error: creditResult.error || 'Failed to deduct credits'
         });
@@ -150,7 +165,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
 
       // Return success response
-      return res.status(200).json({
+      return response.status(200).json({
         success: true,
         data: {
           sentenceId,
@@ -188,7 +203,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             break;
         }
 
-        return res.status(statusCode).json({
+        return response.status(statusCode).json({
           success: false,
           error: errorMessage,
           code: aiError.code
@@ -196,7 +211,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       // Generic AI error
-      return res.status(500).json({
+      return response.status(500).json({
         success: false,
         error: 'Analysis failed. Please try again.',
         code: 'AI_ERROR'
@@ -209,21 +224,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Handle Firestore errors
     if (error instanceof Error) {
       if (error.message.includes('permission-denied')) {
-        return res.status(403).json({
+        return response.status(403).json({
           success: false,
           error: 'Permission denied. Please check your authentication.'
         });
       }
 
       if (error.message.includes('not-found')) {
-        return res.status(404).json({
+        return response.status(404).json({
           success: false,
           error: 'Resource not found'
         });
       }
 
       if (error.message.includes('network')) {
-        return res.status(503).json({
+        return response.status(503).json({
           success: false,
           error: 'Network error. Please try again.'
         });
@@ -231,7 +246,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Generic server error
-    return res.status(500).json({
+    return response.status(500).json({
       success: false,
       error: 'Internal server error. Please try again.'
     });

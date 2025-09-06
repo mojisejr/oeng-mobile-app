@@ -1,6 +1,5 @@
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { auth, db } from '../../firebase-sdk';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { adminAuth, adminDb } from '../../firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { createSuccessResponse, createErrorResponse, setCorsHeaders, handleOptionsRequest, validateRequiredFields } from '../utils/response';
 import { COLLECTION_PATHS, DEFAULT_VALUES, ERROR_CODES } from '../utils/db-schema';
 import { grantFreeCredits } from '../utils/credit-operations';
@@ -42,42 +41,40 @@ export default async function handler(req: any, res: any) {
       return createErrorResponse(res, 'Password must be at least 6 characters long', 400);
     }
 
-    // Create user with Firebase Auth
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const user = userCredential.user;
-
-    // Update user profile with display name
-    await updateProfile(user, {
+    // Create user with Firebase Admin Auth
+    const userRecord = await adminAuth.createUser({
+      email: email,
+      password: password,
       displayName: displayName
     });
 
     // Create user document in Firestore
     const userDoc: any = {
-      uid: user.uid,
-      email: user.email!,
+      uid: userRecord.uid,
+      email: userRecord.email!,
       displayName: displayName,
       ...DEFAULT_VALUES.USER,
-      photoURL: user.photoURL,
-      emailVerified: user.emailVerified,
-      createdAt: serverTimestamp(),
-      lastLoginAt: serverTimestamp(),
+      photoURL: userRecord.photoURL || null,
+      emailVerified: userRecord.emailVerified,
+      createdAt: FieldValue.serverTimestamp(),
+      lastLoginAt: FieldValue.serverTimestamp(),
     };
 
-    await setDoc(doc(db, COLLECTION_PATHS.USERS, user.uid), userDoc);
+    await adminDb.collection(COLLECTION_PATHS.USERS).doc(userRecord.uid).set(userDoc);
 
     // Grant free credits to new user
-    const creditResult = await grantFreeCredits(user.uid, 3);
+    const creditResult = await grantFreeCredits(userRecord.uid, 3);
     if (!creditResult.success) {
-      console.warn('Failed to grant free credits to new user:', user.uid, creditResult.error);
+      console.warn('Failed to grant free credits to new user:', userRecord.uid, creditResult.error);
     }
 
     // Return success response with user data (excluding sensitive info)
     const responseData = {
-      uid: user.uid,
-      email: user.email,
+      uid: userRecord.uid,
+      email: userRecord.email,
       displayName: displayName,
-      photoURL: user.photoURL,
-      emailVerified: user.emailVerified,
+      photoURL: userRecord.photoURL || null,
+      emailVerified: userRecord.emailVerified,
       credits: DEFAULT_VALUES.USER.credits,
     };
 

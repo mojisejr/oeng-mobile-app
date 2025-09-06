@@ -4,6 +4,7 @@ docs/
 # dependencies
 node_modules/
 .env
+.env.server
 
 # Expo
 .expo/
