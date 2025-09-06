@@ -28,6 +28,7 @@
     "@react-native-firebase/messaging": "^23.3.0",
     "@react-navigation/native": "^7.1.6",
     "@stripe/stripe-react-native": "0.45.0",
+    "clsx": "^2.1.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "expo": "~53.0.22",
