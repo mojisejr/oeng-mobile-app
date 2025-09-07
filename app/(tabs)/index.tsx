@@ -1,20 +1,8 @@
 import { View, Text, ScrollView } from 'react-native';
 import React from 'react';
-import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/Button';
-import { router } from 'expo-router';
 
 export default function HomeScreen() {
-  const { user, logout } = useAuth();
-
-  const handleSignOut = async () => {
-    try {
-      await logout();
-      router.replace('/');
-    } catch (error) {
-      console.error('Sign out error:', error);
-    }
-  };
 
   return (
     <ScrollView className="flex-1 bg-white">
@@ -25,7 +13,7 @@ export default function HomeScreen() {
             AI English Coach
           </Text>
           <Text className="text-lg text-gray-600">
-            ยินดีต้อนรับ {user?.displayName || user?.email}
+            ยินดีต้อนรับสู่แอปฝึกภาษาอังกฤษ
           </Text>
         </View>
 
@@ -59,33 +47,24 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* User Info */}
+        {/* App Info */}
         <View className="mb-8">
           <Text className="text-xl font-semibold text-gray-900 mb-4">
-            ข้อมูลผู้ใช้
+            เกี่ยวกับแอป
           </Text>
           
           <View className="bg-gray-50 rounded-lg p-4">
             <Text className="text-gray-700 mb-2">
-              อีเมล: {user?.email}
+              ✨ วิเคราะห์ประโยคภาษาอังกฤษด้วย AI
             </Text>
             <Text className="text-gray-700 mb-2">
-              ชื่อ: {user?.displayName || 'ไม่ระบุ'}
+              📚 เรียนรู้จากคำแนะนำที่ละเอียด
             </Text>
             <Text className="text-gray-700">
-              สถานะ: เข้าสู่ระบบแล้ว
+              🎯 พัฒนาทักษะภาษาอังกฤษอย่างมีประสิทธิภาพ
             </Text>
           </View>
         </View>
-
-        {/* Sign Out */}
-        <Button
-          variant="destructive"
-          onPress={handleSignOut}
-          className="w-full"
-        >
-          ออกจากระบบ
-        </Button>
       </View>
     </ScrollView>
   );

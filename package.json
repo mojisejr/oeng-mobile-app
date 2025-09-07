@@ -21,6 +21,7 @@
     "health:dashboard": "open scripts/health-dashboard.html"
   },
   "dependencies": {
+    "@clerk/clerk-expo": "^2.14.28",
     "@expo/vector-icons": "^14.1.0",
     "@google/generative-ai": "^0.24.1",
     "@react-native-async-storage/async-storage": "^2.1.2",
