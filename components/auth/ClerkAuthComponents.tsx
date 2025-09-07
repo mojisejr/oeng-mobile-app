@@ -3,11 +3,12 @@
  * Pre-built UI components for Clerk authentication flows
  */
 
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { SignedIn, SignedOut, useAuth } from '@clerk/clerk-expo';
-import { SSOProviderDisplay, availableProviders } from '@/config/clerk-sso';
+import { SSOProviderDisplay, availableProviders, SSOErrorHandling } from '@/config/clerk-sso';
 import type { SSOProvider } from '@/config/clerk-sso';
+import { useClerkAuth } from '@/hooks/useClerkAuth';
 
 /**
  * Authentication Status Wrapper
@@ -27,21 +28,78 @@ export const AuthWrapper: React.FC<{
 
 /**
  * SSO Provider Button
- * Individual button for each OAuth provider
+ * Individual button for each OAuth provider with OAuth integration
  */
 export const SSOProviderButton: React.FC<{
   provider: SSOProvider;
-  onPress: (provider: SSOProvider) => void;
+  onPress?: (provider: SSOProvider) => void;
   disabled?: boolean;
 }> = ({ provider, onPress, disabled = false }) => {
   const config = SSOProviderDisplay[provider];
+  const { signInWithOAuth } = useClerkAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const handlePress = async () => {
+    if (disabled || isLoading) return;
+    
+    // Validate OAuth configuration first
+    const validation = SSOErrorHandling.validateOAuthConfig(provider);
+    if (!validation.isValid) {
+      Alert.alert('ไม่สามารถเข้าสู่ระบบได้', validation.message || 'เกิดข้อผิดพลาด');
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      // Use custom onPress if provided, otherwise use built-in OAuth
+      if (onPress) {
+        onPress(provider);
+      } else {
+        await signInWithOAuth(provider);
+      }
+    } catch (error: any) {
+      const errorResult = SSOErrorHandling.handleOAuthError(error, provider);
+      
+      Alert.alert(
+        'เกิดข้อผิดพลาด',
+        errorResult.error,
+        [
+          { text: 'ตกลง', style: 'default' },
+          ...(errorResult.fallbackProviders.length > 0 ? [
+             {
+               text: 'ลองวิธีอื่น',
+               onPress: () => {
+                 // Could implement fallback provider selection here
+                 console.log('Fallback providers:', errorResult.fallbackProviders);
+               }
+             }
+           ] : [])
+        ]
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   return (
-    <View style={[styles.providerButton, { borderColor: config.color }]}>
-      <Text style={[styles.providerButtonText, { color: config.color }]}>
-        {config.buttonText}
+    <TouchableOpacity
+      style={[
+        styles.providerButton,
+        { borderColor: config.color },
+        (disabled || isLoading) && styles.providerButtonDisabled
+      ]}
+      onPress={handlePress}
+      disabled={disabled || isLoading}
+    >
+      <Text style={[
+        styles.providerButtonText,
+        { color: config.color },
+        (disabled || isLoading) && styles.providerButtonTextDisabled
+      ]}>
+        {isLoading ? 'กำลังเข้าสู่ระบบ...' : config.buttonText}
       </Text>
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -113,9 +171,16 @@ const styles = StyleSheet.create({
     marginVertical: 4,
     alignItems: 'center',
   },
+  providerButtonDisabled: {
+    opacity: 0.5,
+    borderColor: '#ccc',
+  },
   providerButtonText: {
     fontSize: 16,
     fontWeight: '500',
+  },
+  providerButtonTextDisabled: {
+    color: '#ccc',
   },
   providersContainer: {
     padding: 16,
