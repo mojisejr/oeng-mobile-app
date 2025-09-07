@@ -2,22 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- PLACEHOLDER FILE - REPLACE WITH ACTUAL GoogleService-Info.plist -->
-	<!-- 
-	INSTRUCTIONS:
-	1. Go to Firebase Console (https://console.firebase.google.com/)
-	2. Select your project: oeng-app
-	3. Go to Project Settings > General
-	4. Scroll down to 'Your apps' section
-	5. Click on iOS app or 'Add app' if not exists
-	6. Use bundle ID: com.oengapp
-	7. Download GoogleService-Info.plist
-	8. Replace this file with the downloaded GoogleService-Info.plist
-	-->
 	<key>API_KEY</key>
-	<string>REPLACE_WITH_ACTUAL_API_KEY</string>
+	<string>AIzaSyD5IImiCL-jeX12YYFBUzPH7FZtMhha1pQ</string>
 	<key>GCM_SENDER_ID</key>
-	<string>REPLACE_WITH_ACTUAL_SENDER_ID</string>
+	<string>112013186869</string>
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
@@ -37,6 +25,10 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>REPLACE_WITH_ACTUAL_APP_ID</string>
+	<string>1:112013186869:ios:34e67dee3b93bf977dde7c</string>
+	<key>DATABASE_URL</key>
+	<string>https://oeng-app-default-rtdb.firebaseio.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.112013186869-abcdefghijklmnopqrstuvwxyz123456</string>
 </dict>
 </plist>
