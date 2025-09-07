@@ -30,12 +30,8 @@ app.get('/health', (req, res) => {
 });
 
 // API routes - Import compiled JavaScript files
-const authRoutes = {
-  register: require('./api/auth/register.js'),
-  login: require('./api/auth/login.js'),
-  logout: require('./api/auth/logout.js'),
-  'reset-password': require('./api/auth/reset-password.js')
-};
+// TODO: Auth routes removed - implement Clerk authentication
+// const authRoutes = {};
 
 const sentenceRoutes = {
   create: require('./api/sentences/create.js'),
@@ -57,10 +53,10 @@ const aiRoutes = {
 
 const healthRoute = require('./api/health.js');
 
-// Mount auth routes
-Object.keys(authRoutes).forEach(route => {
-  app.all(`/api/auth/${route}`, authRoutes[route].default);
-});
+// TODO: Auth routes removed - implement Clerk authentication
+// Object.keys(authRoutes).forEach(route => {
+//   app.all(`/api/auth/${route}`, authRoutes[route].default);
+// });
 
 // Mount sentence routes
 Object.keys(sentenceRoutes).forEach(route => {

@@ -1,15 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.default = handler;
-const firebase_admin_1 = require("../firebase-admin");
 const response_1 = require("./utils/response");
 const render_1 = require("./types/render");
 async function handler(req, res) {
     const request = req;
     const response = (0, render_1.enhanceResponse)(res);
-    if (request.url) {
-        request.query = (0, render_1.parseQuery)(request.url);
-    }
     (0, response_1.setCorsHeaders)(response);
     if (request.method !== 'GET') {
         return response.status(405).json({
@@ -28,15 +24,8 @@ async function handler(req, res) {
             minute: '2-digit',
             second: '2-digit'
         });
-        let firebaseStatus = 'connected';
+        let firebaseStatus = 'not_configured';
         let firebaseError = null;
-        try {
-            await firebase_admin_1.adminDb.collection('_health_check').limit(1).get();
-        }
-        catch (error) {
-            firebaseStatus = 'error';
-            firebaseError = error instanceof Error ? error.message : 'Unknown Firebase error';
-        }
         const envVars = {
             NODE_ENV: process.env.NODE_ENV || 'not_set',
             FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID ? 'set' : 'not_set',

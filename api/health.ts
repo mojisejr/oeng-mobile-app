@@ -1,5 +1,4 @@
 import { IncomingMessage, ServerResponse } from 'http';
-import { adminDb } from '../firebase-admin';
 import { setCorsHeaders } from './utils/response';
 import { RenderRequest, RenderResponse, enhanceResponse, parseQuery } from './types/render';
 
@@ -7,10 +6,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   const request = req as RenderRequest;
   const response = enhanceResponse(res);
   
-  // Parse query parameters
-  if (request.url) {
-    request.query = parseQuery(request.url);
-  }
+  // Removed query parsing - IncomingMessage.query is read-only
   // Set CORS headers
   setCorsHeaders(response);
 
@@ -35,17 +31,10 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       second: '2-digit'
     });
 
-    // Test Firebase connection
-    let firebaseStatus = 'connected';
+    // Database connection test removed (Firebase cleanup)
+    let firebaseStatus = 'not_configured';
     let firebaseError = null;
-    
-    try {
-      // Simple test to check Firebase connection
-      await adminDb.collection('_health_check').limit(1).get();
-    } catch (error) {
-      firebaseStatus = 'error';
-      firebaseError = error instanceof Error ? error.message : 'Unknown Firebase error';
-    }
+    // Note: Database health check will be implemented with new database system
 
     // Check environment variables
     const envVars = {

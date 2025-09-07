@@ -3,12 +3,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.analyzeEnglishSentence = void 0;
 exports.default = handler;
 const render_1 = require("../types/render");
-const firebase_admin_1 = require("../../firebase-admin");
 const gemini_1 = require("../ai/gemini");
 Object.defineProperty(exports, "analyzeEnglishSentence", { enumerable: true, get: function () { return gemini_1.analyzeEnglishSentence; } });
 const response_1 = require("../utils/response");
-const db_schema_1 = require("../utils/db-schema");
-const credit_operations_1 = require("../utils/credit-operations");
 async function handler(req, res) {
     const request = req;
     const response = (0, render_1.enhanceResponse)(res);
@@ -34,74 +31,20 @@ async function handler(req, res) {
         });
     }
     try {
-        const authHeader = request.headers.authorization;
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return response.status(401).json({
-                success: false,
-                error: 'Authorization header required'
-            });
-        }
-        const token = authHeader.split('Bearer ')[1];
-        let decodedToken;
-        try {
-            decodedToken = await firebase_admin_1.adminAuth.verifyIdToken(token);
-        }
-        catch (authError) {
-            console.error('Auth verification failed:', authError);
-            return response.status(401).json({
-                success: false,
-                error: 'Invalid or expired token'
-            });
-        }
-        const userId = decodedToken.uid;
-        const { sentenceId } = request.body;
-        if (!sentenceId) {
+        const { sentenceId, englishSentence, userTranslation, context } = request.body;
+        if (!sentenceId && !englishSentence) {
             return response.status(400).json({
                 success: false,
-                error: 'Sentence ID is required'
+                error: 'Sentence ID or English sentence is required'
             });
         }
-        const sentenceDoc = await firebase_admin_1.adminDb.collection(db_schema_1.COLLECTION_PATHS.SENTENCES).doc(sentenceId).get();
-        if (!sentenceDoc.exists) {
-            return response.status(404).json({
-                success: false,
-                error: 'Sentence not found'
-            });
-        }
-        const sentenceData = sentenceDoc.data();
-        if (!sentenceData) {
-            return response.status(404).json({
-                success: false,
-                error: 'Sentence data not found'
-            });
-        }
-        if (sentenceData.userId !== userId) {
-            return response.status(403).json({
-                success: false,
-                error: 'Access denied. You can only analyze your own sentences.'
-            });
-        }
-        if (sentenceData.status === 'analyzed') {
-            return response.status(400).json({
-                success: false,
-                error: 'Sentence has already been analyzed'
-            });
-        }
-        const userDoc = await firebase_admin_1.adminDb.collection(db_schema_1.COLLECTION_PATHS.USERS).doc(userId).get();
-        if (!userDoc.exists) {
-            return response.status(404).json({
-                success: false,
-                error: 'User not found'
-            });
-        }
-        const userData = userDoc.data();
-        if (!userData) {
-            return response.status(404).json({
-                success: false,
-                error: 'User data not found'
-            });
-        }
-        const currentCredits = userData.creditBalance || 0;
+        const sentenceData = {
+            englishSentence: englishSentence || 'Mock sentence',
+            userTranslation: userTranslation || undefined,
+            context: context || undefined,
+            status: 'pending'
+        };
+        const currentCredits = 10;
         if (currentCredits < 1) {
             return response.status(402).json({
                 success: false,
@@ -111,25 +54,13 @@ async function handler(req, res) {
         }
         try {
             const analysisResult = await (0, gemini_1.analyzeEnglishSentence)(sentenceData.englishSentence, sentenceData.userTranslation, sentenceData.context);
-            const creditResult = await (0, credit_operations_1.deductCredits)(userId, 1, `AI analysis for sentence: ${sentenceData.englishSentence.substring(0, 50)}...`, sentenceId);
-            if (!creditResult.success) {
-                return response.status(402).json({
-                    success: false,
-                    error: creditResult.error || 'Failed to deduct credits'
-                });
-            }
-            await firebase_admin_1.adminDb.collection(db_schema_1.COLLECTION_PATHS.SENTENCES).doc(sentenceId).update({
-                status: 'analyzed',
-                analysis: analysisResult,
-                analyzedAt: new Date(),
-                creditsUsed: 1
-            });
+            const creditsRemaining = currentCredits - 1;
             return response.status(200).json({
                 success: true,
                 data: {
-                    sentenceId,
+                    sentenceId: sentenceId || 'mock-id-' + Date.now(),
                     analysis: analysisResult,
-                    creditsRemaining: currentCredits - 1
+                    creditsRemaining: creditsRemaining
                 },
                 message: 'Sentence analyzed successfully'
             });

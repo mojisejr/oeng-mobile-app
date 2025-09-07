@@ -1,10 +1,7 @@
 import { IncomingMessage, ServerResponse } from 'http';
 import { RenderRequest, RenderResponse, enhanceResponse, parseRequestBody } from '../types/render';
-import { adminAuth, adminDb } from '../../firebase-admin';
 import { analyzeEnglishSentence, AIAnalysisError } from '../ai/gemini';
 import { setCorsHeaders, handleOptionsRequest } from '../utils/response';
-import { COLLECTION_PATHS } from '../utils/db-schema';
-import { deductCredits } from '../utils/credit-operations';
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   const request = req as RenderRequest;
@@ -38,93 +35,31 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   }
 
   try {
-    // Get authorization header
-    const authHeader = request.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return response.status(401).json({
-        success: false,
-        error: 'Authorization header required'
-      });
-    }
-
-    // Verify Firebase token
-    const token = authHeader.split('Bearer ')[1];
-    let decodedToken;
-    try {
-      decodedToken = await adminAuth.verifyIdToken(token);
-    } catch (authError) {
-      console.error('Auth verification failed:', authError);
-      return response.status(401).json({
-        success: false,
-        error: 'Invalid or expired token'
-      });
-    }
-
-    const userId = decodedToken.uid;
+    // Note: Authentication removed as part of Firebase Auth cleanup
 
     // Validate request body
-    const { sentenceId } = request.body;
+    const { sentenceId, englishSentence, userTranslation, context } = request.body;
 
-    if (!sentenceId) {
+    if (!sentenceId && !englishSentence) {
       return response.status(400).json({
         success: false,
-        error: 'Sentence ID is required'
+        error: 'Sentence ID or English sentence is required'
       });
     }
 
-    // Get sentence document
-    const sentenceDoc = await adminDb.collection(COLLECTION_PATHS.SENTENCES).doc(sentenceId).get();
+    // TODO: Replace with new database implementation
+    // For now, use mock data
+    const sentenceData = {
+      englishSentence: englishSentence || 'Mock sentence',
+      userTranslation: userTranslation || undefined,
+      context: context || undefined,
+      status: 'pending'
+    };
 
-    if (!sentenceDoc.exists) {
-      return response.status(404).json({
-        success: false,
-        error: 'Sentence not found'
-      });
-    }
+    // Mock credit check (always allow for now)
+    const currentCredits = 10; // Mock credits
 
-    const sentenceData = sentenceDoc.data();
-    if (!sentenceData) {
-      return response.status(404).json({
-        success: false,
-        error: 'Sentence data not found'
-      });
-    }
-
-    // Check if user owns this sentence
-    if (sentenceData.userId !== userId) {
-      return response.status(403).json({
-        success: false,
-        error: 'Access denied. You can only analyze your own sentences.'
-      });
-    }
-
-    // Check if sentence is already analyzed
-    if (sentenceData.status === 'analyzed') {
-      return response.status(400).json({
-        success: false,
-        error: 'Sentence has already been analyzed'
-      });
-    }
-
-    // Check user's credit balance
-    const userDoc = await adminDb.collection(COLLECTION_PATHS.USERS).doc(userId).get();
-
-    if (!userDoc.exists) {
-      return response.status(404).json({
-        success: false,
-        error: 'User not found'
-      });
-    }
-
-    const userData = userDoc.data();
-    if (!userData) {
-      return response.status(404).json({
-        success: false,
-        error: 'User data not found'
-      });
-    }
-    const currentCredits = userData.creditBalance || 0;
-
+    // Mock sufficient credits for now
     if (currentCredits < 1) {
       return response.status(402).json({
         success: false,
@@ -141,36 +76,19 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         sentenceData.context
       );
 
-      // Deduct credit from user (with transaction logging)
-      const creditResult = await deductCredits(
-        userId,
-        1,
-        `AI analysis for sentence: ${sentenceData.englishSentence.substring(0, 50)}...`,
-        sentenceId
-      );
-
-      if (!creditResult.success) {
-        return response.status(402).json({
-          success: false,
-          error: creditResult.error || 'Failed to deduct credits'
-        });
-      }
-
-      // Update sentence with analysis results
-      await adminDb.collection(COLLECTION_PATHS.SENTENCES).doc(sentenceId).update({
-        status: 'analyzed',
-        analysis: analysisResult,
-        analyzedAt: new Date(),
-        creditsUsed: 1
-      });
+      // TODO: Implement credit deduction with new system
+      // TODO: Update sentence with analysis results in new database
+      
+      // Mock credit deduction
+      const creditsRemaining = currentCredits - 1;
 
       // Return success response
       return response.status(200).json({
         success: true,
         data: {
-          sentenceId,
+          sentenceId: sentenceId || 'mock-id-' + Date.now(),
           analysis: analysisResult,
-          creditsRemaining: currentCredits - 1
+          creditsRemaining: creditsRemaining
         },
         message: 'Sentence analyzed successfully'
       });

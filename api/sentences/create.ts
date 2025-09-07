@@ -1,9 +1,5 @@
-import { adminDb } from '../../firebase-admin';
-import { FieldValue } from 'firebase-admin/firestore';
 import { createSuccessResponse, createErrorResponse, setCorsHeaders, handleOptionsRequest, validateRequiredFields } from '../utils/response';
-import { verifyToken } from '../middleware/auth';
-import { COLLECTION_PATHS, DEFAULT_VALUES, VALIDATION_RULES } from '../utils/db-schema';
-import type { SentenceDocument } from '../utils/db-schema';
+import { VALIDATION_RULES } from '../utils/db-schema';
 
 export default async function handler(req: any, res: any) {
   // Handle CORS
@@ -18,18 +14,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    // Extract and verify token
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return createErrorResponse(res, 'Authorization token required', 401);
-    }
-
-    const token = authHeader.split(' ')[1];
-    const user = await verifyToken(token);
-    
-    if (!user) {
-      return createErrorResponse(res, 'Invalid or expired token', 401);
-    }
+    // Note: Authentication removed as part of Firebase Auth cleanup
 
     const { englishSentence, userTranslation, context } = req.body;
 
@@ -86,24 +71,20 @@ export default async function handler(req: any, res: any) {
       );
     }
 
-    // Create sentence document
-    const sentenceData: any = {
-      userId: user.uid,
+    // Create sentence document (Firebase removed)
+    const sentenceData = {
       englishSentence: englishSentence.trim(),
       userTranslation: userTranslation?.trim() || undefined,
       context: context?.trim() || undefined,
-      ...DEFAULT_VALUES.SENTENCE,
-      createdAt: FieldValue.serverTimestamp(),
+      status: 'pending',
+      createdAt: new Date().toISOString(),
     };
 
-    // Add to Firestore using Admin SDK
-    const docRef = await adminDb.collection(COLLECTION_PATHS.SENTENCES).add(sentenceData);
-
-    // Return success response with created sentence data
+    // TODO: Replace with new database implementation
+    // For now, return mock response
     const responseData = {
-      id: docRef.id,
+      id: 'mock-id-' + Date.now(),
       ...sentenceData,
-      createdAt: new Date().toISOString(), // Convert for response
     };
 
     return createSuccessResponse(
@@ -115,15 +96,7 @@ export default async function handler(req: any, res: any) {
   } catch (error: any) {
     console.error('Create sentence error:', error);
 
-    // Handle Firestore errors
-    if (error.message?.includes('firestore') || error.code?.startsWith('firestore/')) {
-      return createErrorResponse(res, 'Database error. Please try again', 500);
-    }
-
-    // Handle permission errors
-    if (error.code === 'permission-denied') {
-      return createErrorResponse(res, 'Permission denied. Please check your authentication', 403);
-    }
+    // Handle general errors (Firebase removed)
 
     return createErrorResponse(res, 'Failed to create sentence. Please try again', 500);
   }
