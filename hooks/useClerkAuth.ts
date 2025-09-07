@@ -3,7 +3,7 @@
  * Provides authentication state and methods for the app
  */
 
-import { useAuth, useUser } from '@clerk/clerk-expo';
+import { useAuth, useUser, useOAuth } from '@clerk/clerk-expo';
 import { useCallback } from 'react';
 import type { SSOProvider } from '@/config/clerk-sso';
 import { ClerkOAuthStrategies } from '@/config/clerk-sso';
@@ -12,27 +12,45 @@ export const useClerkAuth = () => {
   const { isLoaded, isSignedIn, signOut } = useAuth();
   const { user } = useUser();
 
+  // OAuth hooks for each provider
+  const { startOAuthFlow: startGoogleOAuth } = useOAuth({ strategy: 'oauth_google' });
+  const { startOAuthFlow: startFacebookOAuth } = useOAuth({ strategy: 'oauth_facebook' });
+  const { startOAuthFlow: startLineOAuth } = useOAuth({ strategy: 'oauth_line' });
+
   /**
    * Sign in with OAuth provider
    */
   const signInWithOAuth = useCallback(async (provider: SSOProvider) => {
     try {
-      // This will be implemented in Phase 2.1b
-      // For now, we're just preparing the structure
-      console.log(`Preparing to sign in with ${provider}`);
+      const strategy = ClerkOAuthStrategies[provider];
       
-      // Future implementation:
-      // const strategy = ClerkOAuthStrategies[provider];
-      // await signIn.authenticateWithRedirect({
-      //   strategy,
-      //   redirectUrl: '/dashboard',
-      //   redirectUrlComplete: '/dashboard'
-      // });
+      let startOAuthFlow;
+      switch (provider) {
+        case 'google':
+          startOAuthFlow = startGoogleOAuth;
+          break;
+        case 'facebook':
+          startOAuthFlow = startFacebookOAuth;
+          break;
+        case 'line':
+          startOAuthFlow = startLineOAuth;
+          break;
+        default:
+          throw new Error(`Unsupported OAuth provider: ${provider}`);
+      }
+
+      const { createdSessionId, setActive } = await startOAuthFlow({
+        redirectUrl: '/dashboard',
+      });
+
+      if (createdSessionId && setActive) {
+        setActive({ session: createdSessionId });
+      }
     } catch (error) {
       console.error(`Error signing in with ${provider}:`, error);
       throw error;
     }
-  }, []);
+  }, [startGoogleOAuth, startFacebookOAuth, startLineOAuth]);
 
   /**
    * Sign out user

@@ -98,10 +98,56 @@ export const SSOErrorHandling = {
   // Default error handling for OAuth failures
   handleOAuthError: (error: any, provider: SSOProvider) => {
     console.error(`OAuth error for ${provider}:`, error);
+    
+    // Determine error type and provide specific message
+    let errorMessage = `เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย ${SSOProviderDisplay[provider]?.name || provider}`;
+    
+    if (error?.code === 'oauth_access_denied') {
+      errorMessage = 'การเข้าสู่ระบบถูกยกเลิก กรุณาลองใหม่อีกครั้ง';
+    } else if (error?.code === 'oauth_callback_error') {
+      errorMessage = 'เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต';
+    } else if (error?.code === 'oauth_email_domain_reserved_by_saml') {
+      errorMessage = 'อีเมลนี้ถูกจำกัดการใช้งาน กรุณาใช้อีเมลอื่น';
+    }
+    
     return {
       success: false,
-      error: `เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย ${SSOProviderDisplay[provider]?.name || provider}`,
+      error: errorMessage,
+      errorCode: error?.code || 'unknown_error',
       fallbackProviders: SSOErrorHandling.getFallbackProviders(provider),
     };
+  },
+
+  // Validate OAuth configuration before attempting sign-in
+  validateOAuthConfig: (provider: SSOProvider): { isValid: boolean; message?: string } => {
+    const config = ClerkSSOConfig[provider];
+    
+    if (!config.enabled) {
+      return {
+        isValid: false,
+        message: `การเข้าสู่ระบบด้วย ${SSOProviderDisplay[provider]?.name} ถูกปิดใช้งานชั่วคราว`,
+      };
+    }
+    
+    if (!SSOErrorHandling.isOAuthStrategyValid(config.provider)) {
+      return {
+        isValid: false,
+        message: `การกำหนดค่า OAuth สำหรับ ${SSOProviderDisplay[provider]?.name} ไม่ถูกต้อง`,
+      };
+    }
+    
+    return { isValid: true };
+  },
+
+  // Get user-friendly error message based on error type
+  getUserFriendlyErrorMessage: (error: any): string => {
+    const commonErrors: Record<string, string> = {
+      'network_error': 'ไม่สามารถเชื่อมต่อได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต',
+      'timeout_error': 'การเชื่อมต่อหมดเวลา กรุณาลองใหม่อีกครั้ง',
+      'invalid_request': 'คำขอไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง',
+      'server_error': 'เซิร์ฟเวอร์ขัดข้อง กรุณาลองใหม่ในภายหลัง',
+    };
+    
+    return commonErrors[error?.type] || 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ กรุณาลองใหม่อีกครั้ง';
   },
 };
