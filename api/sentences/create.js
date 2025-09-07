@@ -1,9 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = handler;
 const response_1 = require("../utils/response");
 const db_schema_1 = require("../utils/db-schema");
-async function handler(req, res) {
+const auth_middleware_1 = require("../utils/auth-middleware");
+const firebase_1 = require("../utils/firebase");
+async function createHandler(req, res) {
     (0, response_1.setCorsHeaders)(res);
     if (req.method === 'OPTIONS') {
         return (0, response_1.handleOptionsRequest)(res);
@@ -12,6 +13,10 @@ async function handler(req, res) {
         return (0, response_1.createErrorResponse)(res, 'Method not allowed', 405);
     }
     try {
+        const clerkUserId = req.user?.id;
+        if (!clerkUserId) {
+            return (0, response_1.createErrorResponse)(res, 'User authentication required', 401);
+        }
         const { englishSentence, userTranslation, context } = req.body;
         const validation = (0, response_1.validateRequiredFields)(req.body, ['englishSentence']);
         if (!validation.isValid) {
@@ -33,20 +38,31 @@ async function handler(req, res) {
             return (0, response_1.createErrorResponse)(res, `Context must not exceed ${db_schema_1.VALIDATION_RULES.CONTEXT.maxLength} characters`, 400);
         }
         const sentenceData = {
+            userId: clerkUserId,
+            clerkUserId,
             englishSentence: englishSentence.trim(),
             userTranslation: userTranslation?.trim() || undefined,
             context: context?.trim() || undefined,
             status: 'pending',
-            createdAt: new Date().toISOString(),
+            creditsUsed: 1,
+            isFavorite: false
         };
+        const sentenceId = await firebase_1.sentenceOperations.create(sentenceData);
         const responseData = {
-            id: 'mock-id-' + Date.now(),
+            id: sentenceId,
             ...sentenceData,
         };
         return (0, response_1.createSuccessResponse)(res, responseData, 'Sentence created successfully');
     }
     catch (error) {
         console.error('Create sentence error:', error);
+        if (error.code === 'permission-denied') {
+            return (0, response_1.createErrorResponse)(res, 'Permission denied', 403);
+        }
+        if (error.code === 'unavailable') {
+            return (0, response_1.createErrorResponse)(res, 'Service temporarily unavailable', 503);
+        }
         return (0, response_1.createErrorResponse)(res, 'Failed to create sentence. Please try again', 500);
     }
 }
+exports.default = (0, auth_middleware_1.withAuth)(createHandler);

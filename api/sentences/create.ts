@@ -1,7 +1,10 @@
 import { createSuccessResponse, createErrorResponse, setCorsHeaders, handleOptionsRequest, validateRequiredFields } from '../utils/response';
 import { VALIDATION_RULES } from '../utils/db-schema';
+import { withAuth, AuthenticatedRequest } from '../utils/auth-middleware';
+import { sentenceOperations } from '../utils/firebase';
+import { ServerResponse } from 'http';
 
-export default async function handler(req: any, res: any) {
+async function createHandler(req: AuthenticatedRequest, res: ServerResponse) {
   // Handle CORS
   setCorsHeaders(res);
   
@@ -14,7 +17,12 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    // Note: Authentication removed as part of Firebase Auth cleanup
+    // Get Clerk user ID from authenticated request
+    const clerkUserId = req.user?.id;
+    
+    if (!clerkUserId) {
+      return createErrorResponse(res, 'User authentication required', 401);
+    }
 
     const { englishSentence, userTranslation, context } = req.body;
 
@@ -71,19 +79,23 @@ export default async function handler(req: any, res: any) {
       );
     }
 
-    // Create sentence document (Firebase removed)
+    // Create sentence document in Firestore
     const sentenceData = {
+      userId: clerkUserId, // Use Clerk user ID as primary identifier
+      clerkUserId,
       englishSentence: englishSentence.trim(),
       userTranslation: userTranslation?.trim() || undefined,
       context: context?.trim() || undefined,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
+      status: 'pending' as const,
+      creditsUsed: 1, // Default credit cost for analysis
+      isFavorite: false
     };
 
-    // TODO: Replace with new database implementation
-    // For now, return mock response
+    // Save to Firestore using sentence operations
+    const sentenceId = await sentenceOperations.create(sentenceData);
+
     const responseData = {
-      id: 'mock-id-' + Date.now(),
+      id: sentenceId,
       ...sentenceData,
     };
 
@@ -96,8 +108,17 @@ export default async function handler(req: any, res: any) {
   } catch (error: any) {
     console.error('Create sentence error:', error);
 
-    // Handle general errors (Firebase removed)
+    // Handle specific Firebase errors
+    if (error.code === 'permission-denied') {
+      return createErrorResponse(res, 'Permission denied', 403);
+    }
+
+    if (error.code === 'unavailable') {
+      return createErrorResponse(res, 'Service temporarily unavailable', 503);
+    }
 
     return createErrorResponse(res, 'Failed to create sentence. Please try again', 500);
   }
 }
+
+export default withAuth(createHandler);

@@ -1,12 +1,15 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = handler;
 const render_1 = require("../types/render");
 const response_1 = require("../utils/response");
-async function handler(req, res) {
+const auth_middleware_1 = require("../utils/auth-middleware");
+const firebase_sdk_1 = require("../../firebase-sdk");
+const firestore_1 = require("firebase/firestore");
+const db_schema_1 = require("../utils/db-schema");
+async function historyHandler(req, res) {
     const request = req;
     const response = (0, render_1.enhanceResponse)(res);
-    const query = (0, render_1.parseQuery)(request.url || '');
+    const queryParams = (0, render_1.parseQuery)(request.url || '');
     if (request.method === 'OPTIONS') {
         return (0, response_1.handleOptionsRequest)(response);
     }
@@ -18,8 +21,14 @@ async function handler(req, res) {
         });
     }
     try {
-        const userId = 'mock-user-id';
-        const limitParam = query.limit;
+        const clerkUserId = request.user?.id;
+        if (!clerkUserId) {
+            return response.status(401).json({
+                success: false,
+                error: 'User not authenticated'
+            });
+        }
+        const limitParam = queryParams.limit;
         const limit = limitParam ? parseInt(limitParam, 10) : 20;
         if (limit < 1 || limit > 100) {
             return response.status(400).json({
@@ -27,26 +36,21 @@ async function handler(req, res) {
                 error: 'Limit must be between 1 and 100'
             });
         }
-        const transactions = [
-            {
-                id: 'mock-transaction-1',
-                type: 'purchase',
-                amount: 10,
-                description: 'Credit purchase',
-                relatedDocumentId: null,
-                createdAt: new Date().toISOString(),
-                balanceAfter: 10
-            }
-        ];
-        const totalTransactions = 1;
-        const hasMore = transactions.length === limit && totalTransactions > limit;
+        const transactionsRef = (0, firestore_1.collection)(firebase_sdk_1.db, db_schema_1.COLLECTION_PATHS.CREDIT_TRANSACTIONS);
+        const q = (0, firestore_1.query)(transactionsRef, (0, firestore_1.where)('clerkUserId', '==', clerkUserId), (0, firestore_1.orderBy)('createdAt', 'desc'), (0, firestore_1.limit)(limit));
+        const querySnapshot = await (0, firestore_1.getDocs)(q);
+        const transactions = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: doc.data().createdAt?.toDate?.()?.toISOString() || doc.data().createdAt
+        }));
+        const hasMore = transactions.length === limit;
         return response.status(200).json({
             success: true,
             data: {
                 transactions,
                 pagination: {
                     limit,
-                    total: totalTransactions,
                     hasMore,
                     returned: transactions.length
                 }
@@ -75,12 +79,6 @@ async function handler(req, res) {
                     error: 'Network error. Please try again.'
                 });
             }
-            if (error.message.includes('index')) {
-                return response.status(500).json({
-                    success: false,
-                    error: 'Database index required. Please contact support.'
-                });
-            }
         }
         return response.status(500).json({
             success: false,
@@ -88,3 +86,4 @@ async function handler(req, res) {
         });
     }
 }
+exports.default = (0, auth_middleware_1.withAuth)(historyHandler);

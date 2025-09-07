@@ -1,9 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = handler;
 const render_1 = require("../types/render");
 const response_1 = require("../utils/response");
-async function handler(req, res) {
+const auth_middleware_1 = require("../utils/auth-middleware");
+const credit_operations_1 = require("../utils/credit-operations");
+const firebase_1 = require("../utils/firebase");
+async function balanceHandler(req, res) {
     const request = req;
     const response = (0, render_1.enhanceResponse)(res);
     if (request.method === 'OPTIONS') {
@@ -17,17 +19,24 @@ async function handler(req, res) {
         });
     }
     try {
-        const mockCreditBalance = 10;
+        const clerkUserId = request.user?.id;
+        if (!clerkUserId) {
+            return response.status(401).json({
+                success: false,
+                error: 'User not authenticated'
+            });
+        }
+        const creditBalance = await (0, credit_operations_1.getCreditBalance)(clerkUserId);
+        const userData = await firebase_1.userOperations.getById(clerkUserId);
         return response.status(200).json({
             success: true,
             data: {
-                creditBalance: mockCreditBalance,
-                totalCreditsUsed: 0,
-                totalCreditsPurchased: 10,
-                lastCreditUsed: null,
-                accountCreated: new Date().toISOString()
+                creditBalance,
+                totalCreditsUsed: userData?.totalCreditsUsed || 0,
+                totalCreditsPurchased: userData?.totalCreditsPurchased || 0,
+                accountCreated: userData?.createdAt || new Date().toISOString()
             },
-            message: 'Credit balance retrieved successfully (mock data)'
+            message: 'Credit balance retrieved successfully'
         });
     }
     catch (error) {
@@ -38,3 +47,4 @@ async function handler(req, res) {
         });
     }
 }
+exports.default = (0, auth_middleware_1.withAuth)(balanceHandler);

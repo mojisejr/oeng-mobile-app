@@ -36,11 +36,12 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
   className,
   ...props
 }) => {
-  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+  const { fields } = useAuthForm();
 
   const handleTogglePress = () => {
-    const newVisibility = !isPasswordVisible;
-    setIsPasswordVisible(newVisibility);
+    const newVisibility = !isVisible;
+    setIsVisible(newVisibility);
     onTogglePress?.(newVisibility);
   };
 
@@ -64,15 +65,15 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
   const renderToggleIcon = () => {
     if (!showToggle) return null;
 
-    const IconComponent = isPasswordVisible ? EyeOff : Eye;
-    const iconColor = isPasswordVisible ? toggleActiveColor : toggleColor;
+    const IconComponent = isVisible ? EyeOff : Eye;
+    const iconColor = isVisible ? toggleActiveColor : toggleColor;
 
     return (
       <TouchableOpacity
         onPress={handleTogglePress}
         className="p-1"
         activeOpacity={0.7}
-        accessibilityLabel={isPasswordVisible ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
+        accessibilityLabel={isVisible ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน'}
         accessibilityRole="button"
       >
         <IconComponent
@@ -84,7 +85,6 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
   };
 
   const renderStrengthIndicator = () => {
-    const { fields } = useAuthForm();
     const currentValue = fields[props.name]?.value || '';
     
     if (!strengthIndicator || !currentValue) return null;
@@ -117,7 +117,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
       <View className="relative">
         <AuthInput
           {...props}
-          secureTextEntry={!isPasswordVisible}
+          secureTextEntry={!isVisible}
           autoComplete="current-password"
           autoCapitalize="none"
         />

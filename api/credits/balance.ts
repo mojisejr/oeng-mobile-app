@@ -1,10 +1,14 @@
 import { IncomingMessage, ServerResponse } from 'http';
 import { RenderRequest, RenderResponse, enhanceResponse } from '../types/render';
 import { setCorsHeaders, handleOptionsRequest } from '../utils/response';
+import { withAuth } from '../utils/auth-middleware';
+import { getCreditBalance } from '../utils/credit-operations';
+import { userOperations } from '../utils/firebase';
 
-export default async function handler(req: IncomingMessage, res: ServerResponse) {
+async function balanceHandler(req: IncomingMessage, res: ServerResponse) {
   const request = req as RenderRequest;
   const response = enhanceResponse(res);
+  
   // Handle CORS
   if (request.method === 'OPTIONS') {
     return handleOptionsRequest(response);
@@ -22,32 +26,42 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   }
 
   try {
-    // Note: Authentication removed as part of Firebase Auth cleanup
+    // Get Clerk user ID from authenticated request
+    const clerkUserId = (request as any).user?.id;
     
-    // TODO: Replace with new authentication system
-    // For now, return mock credit balance
-    const mockCreditBalance = 10;
+    if (!clerkUserId) {
+      return response.status(401).json({
+        success: false,
+        error: 'User not authenticated'
+      });
+    }
 
-    // Return mock credit balance and statistics
+    // Get credit balance using Clerk user ID
+    const creditBalance = await getCreditBalance(clerkUserId);
+    
+    // Get user data for additional statistics
+    const userData = await userOperations.getById(clerkUserId);
+    
+    // Return credit balance and statistics
     return response.status(200).json({
       success: true,
       data: {
-        creditBalance: mockCreditBalance,
-        totalCreditsUsed: 0,
-        totalCreditsPurchased: 10,
-        lastCreditUsed: null,
-        accountCreated: new Date().toISOString()
+        creditBalance,
+        totalCreditsUsed: userData?.totalCreditsUsed || 0,
+        totalCreditsPurchased: userData?.totalCreditsPurchased || 0,
+        accountCreated: userData?.createdAt || new Date().toISOString()
       },
-      message: 'Credit balance retrieved successfully (mock data)'
+      message: 'Credit balance retrieved successfully'
     });
 
   } catch (error) {
     console.error('Get credit balance error:', error);
 
-    // Handle general errors (Firebase removed)
     return response.status(500).json({
       success: false,
       error: 'Internal server error. Please try again.'
     });
   }
 }
+
+export default withAuth(balanceHandler);

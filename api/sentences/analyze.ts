@@ -2,67 +2,110 @@ import { IncomingMessage, ServerResponse } from 'http';
 import { RenderRequest, RenderResponse, enhanceResponse, parseRequestBody } from '../types/render';
 import { analyzeEnglishSentence, AIAnalysisError } from '../ai/gemini';
 import { setCorsHeaders, handleOptionsRequest } from '../utils/response';
+import { withAuth, type AuthenticatedRequest } from '../utils/auth-middleware';
+import { db } from '../../firebase-sdk';
+import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { COLLECTION_PATHS } from '../utils/db-schema';
 
-export default async function handler(req: IncomingMessage, res: ServerResponse) {
+async function analyzeHandler(req: AuthenticatedRequest, res: any) {
   console.log('Analyze handler called:', req.method, req.url);
-  const request = req as RenderRequest;
-  const response = enhanceResponse(res);
   
   // Handle CORS
-  if (request.method === 'OPTIONS') {
-    return handleOptionsRequest(response);
+  if (req.method === 'OPTIONS') {
+    return handleOptionsRequest(res);
   }
 
   // Set CORS headers
-  setCorsHeaders(response);
+  setCorsHeaders(res);
 
   // Only allow POST method
-  if (request.method !== 'POST') {
-    return response.status(405).json({
+  if (req.method !== 'POST') {
+    return res.status(405).json({
       success: false,
       error: 'Method not allowed. Use POST.'
     });
   }
   
-  // Express middleware already parsed the body, so we can use req.body directly
-  console.log('Request body from Express:', (req as any).body);
-  
-  if (!(req as any).body || !(req as any).body.englishSentence) {
-    console.error('Missing englishSentence in request body');
-    return response.status(400).json({ 
-      success: false,
-      error: 'englishSentence is required' 
-    });
-  }
-
   try {
-    // Note: Authentication removed as part of Firebase Auth cleanup
+    // Get Clerk user ID from authenticated request
+    const clerkUserId = req.user?.id;
+    
+    if (!clerkUserId) {
+      return res.status(401).json({
+        success: false,
+        error: 'User authentication required'
+      });
+    }
 
     // Validate request body
-    const { sentenceId, englishSentence, userTranslation, context } = (req as any).body;
+    const { sentenceId, englishSentence, userTranslation, context } = req.body;
 
     if (!sentenceId && !englishSentence) {
-      return response.status(400).json({
+      return res.status(400).json({
         success: false,
         error: 'Sentence ID or English sentence is required'
       });
     }
 
-    // TODO: Replace with new database implementation
-    // For now, use mock data
-    const sentenceData = {
-      englishSentence: englishSentence || 'Mock sentence',
-      userTranslation: userTranslation || undefined,
-      context: context || undefined,
-      status: 'pending'
-    };
+    let sentenceData;
+    let sentenceRef;
 
-    // Mock credit check (always allow for now)
-    const currentCredits = 10; // Mock credits
+    // If sentenceId is provided, get the sentence from database
+    if (sentenceId) {
+      sentenceRef = doc(db, COLLECTION_PATHS.SENTENCES, sentenceId);
+      const sentenceSnap = await getDoc(sentenceRef);
 
-    // Mock sufficient credits for now
+      if (!sentenceSnap.exists()) {
+        return res.status(404).json({
+          success: false,
+          error: 'Sentence not found'
+        });
+      }
+
+      sentenceData = sentenceSnap.data();
+
+      // Check if user owns this sentence
+      if (sentenceData.clerkUserId !== clerkUserId && sentenceData.userId !== clerkUserId) {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied'
+        });
+      }
+
+      // Check if sentence is already analyzed
+      if (sentenceData.status === 'analyzed') {
+        return res.status(400).json({
+          success: false,
+          error: 'Sentence is already analyzed'
+        });
+      }
+    } else {
+      // Use provided data for analysis without saving
+      sentenceData = {
+        englishSentence: englishSentence,
+        userTranslation: userTranslation || undefined,
+        context: context || undefined,
+        status: 'pending'
+      };
+    }
+
+    // Get user's current credits
+    const userRef = doc(db, COLLECTION_PATHS.USERS, clerkUserId);
+    const userSnap = await getDoc(userRef);
+    
+    if (!userSnap.exists()) {
+      return res.status(404).json({
+        success: false,
+        error: 'User profile not found'
+      });
+    }
+
+    const userData = userSnap.data();
+    const currentCredits = userData.credits || 0;
+
+    // Check if user has sufficient credits
     if (currentCredits < 1) {
-      return response.status(402).json({
+      return res.status(402).json({
         success: false,
         error: 'Insufficient credits. Please purchase more credits to continue.',
         code: 'INSUFFICIENT_CREDITS'
@@ -79,18 +122,31 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       );
       console.log('AI analysis completed successfully');
 
-      // TODO: Implement credit deduction with new system
-      // TODO: Update sentence with analysis results in new database
+      // Deduct credit from user
+      await updateDoc(userRef, {
+        credits: currentCredits - 1,
+        updatedAt: serverTimestamp()
+      });
+
+      // If sentenceId was provided, update the sentence with analysis results
+      if (sentenceId && sentenceRef) {
+        await updateDoc(sentenceRef, {
+          analysis: analysisResult,
+          status: 'analyzed',
+          analyzedAt: serverTimestamp(),
+          creditsUsed: (sentenceData.creditsUsed || 0) + 1,
+          updatedAt: serverTimestamp()
+        });
+      }
       
-      // Mock credit deduction
       const creditsRemaining = currentCredits - 1;
 
       // Return success response
       console.log('Sending success response with analysis result');
-      return response.status(200).json({
+      return res.status(200).json({
         success: true,
         data: {
-          sentenceId: sentenceId || 'mock-id-' + Date.now(),
+          sentenceId: sentenceId || 'analysis-only-' + Date.now(),
           analysis: analysisResult,
           creditsRemaining: creditsRemaining
         },
@@ -125,7 +181,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
             break;
         }
 
-        return response.status(statusCode).json({
+        return res.status(statusCode).json({
           success: false,
           error: errorMessage,
           code: aiError.code
@@ -133,7 +189,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       }
 
       // Generic AI error
-      return response.status(500).json({
+      return res.status(500).json({
         success: false,
         error: 'Analysis failed. Please try again.',
         code: 'AI_ERROR'
@@ -146,21 +202,21 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     // Handle Firestore errors
     if (error instanceof Error) {
       if (error.message.includes('permission-denied')) {
-        return response.status(403).json({
+        return res.status(403).json({
           success: false,
           error: 'Permission denied. Please check your authentication.'
         });
       }
 
       if (error.message.includes('not-found')) {
-        return response.status(404).json({
+        return res.status(404).json({
           success: false,
           error: 'Resource not found'
         });
       }
 
       if (error.message.includes('network')) {
-        return response.status(503).json({
+        return res.status(503).json({
           success: false,
           error: 'Network error. Please try again.'
         });
@@ -168,12 +224,14 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     }
 
     // Generic server error
-    return response.status(500).json({
+    return res.status(500).json({
       success: false,
       error: 'Internal server error. Please try again.'
     });
   }
 }
+
+export default withAuth(analyzeHandler);
 
 // Export for testing
 export { analyzeEnglishSentence };
