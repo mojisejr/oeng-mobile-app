@@ -39,4 +39,10 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# Google Services (keep placeholders, ignore actual files)
+# The placeholder files should remain in version control
+# But actual files from Firebase Console should be ignored
+google-services.json.actual
+GoogleService-Info.plist.actual
+
 app-example
