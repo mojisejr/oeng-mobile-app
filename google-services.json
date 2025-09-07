@@ -1,27 +1,40 @@
 {
-  "_comment": "PLACEHOLDER FILE - REPLACE WITH ACTUAL google-services.json",
-  "_instructions": [
-    "1. Go to Firebase Console (https://console.firebase.google.com/)",
-    "2. Select your project: oeng-app",
-    "3. Go to Project Settings > General",
-    "4. Scroll down to 'Your apps' section",
-    "5. Click on Android app or 'Add app' if not exists",
-    "6. Use package name: com.oengapp",
-    "7. Download google-services.json",
-    "8. Replace this file with the downloaded google-services.json"
-  ],
   "project_info": {
-    "project_number": "REPLACE_WITH_ACTUAL_PROJECT_NUMBER",
-    "project_id": "oeng-app"
+    "project_number": "112013186869",
+    "firebase_url": "https://oeng-app-default-rtdb.firebaseio.com",
+    "project_id": "oeng-app",
+    "storage_bucket": "oeng-app.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "REPLACE_WITH_ACTUAL_APP_ID",
+        "mobilesdk_app_id": "1:112013186869:android:34e67dee3b93bf977dde7c",
         "android_client_info": {
           "package_name": "com.oengapp"
         }
+      },
+      "oauth_client": [
+        {
+          "client_id": "112013186869-abcdefghijklmnopqrstuvwxyz123456.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD5IImiCL-jeX12YYFBUzPH7FZtMhha1pQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "112013186869-abcdefghijklmnopqrstuvwxyz123456.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
       }
     }
-  ]
+  ],
+  "configuration_version": "1"
 }
