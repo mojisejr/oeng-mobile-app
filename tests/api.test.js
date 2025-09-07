@@ -1,12 +1,9 @@
 const request = require('supertest');
 const app = require('../server');
 
-// Mock Firebase Admin SDK
-jest.mock('../firebase-admin', () => ({
-  adminAuth: {
-    verifyIdToken: jest.fn()
-  },
-  adminDb: {
+// Mock Firebase SDK (client-side)
+jest.mock('../firebase-sdk', () => ({
+  db: {
     collection: jest.fn(() => ({
       doc: jest.fn(() => ({
         get: jest.fn(),
@@ -109,52 +106,13 @@ describe('API Root Endpoint', () => {
   });
 });
 
-describe('Authentication API', () => {
-  test('POST /api/auth/register should handle registration', async () => {
-    const userData = {
-      email: 'test@example.com',
-      password: 'password123',
-      displayName: 'Test User'
-    };
 
-    // Mock successful Firebase auth creation
-    const { adminAuth } = require('../firebase-admin');
-    adminAuth.createUser = jest.fn().mockResolvedValue({
-      uid: 'test-uid',
-      email: userData.email
-    });
 
-    const response = await request(app)
-      .post('/api/auth/register')
-      .send(userData)
-      .expect(201);
-
-    expect(response.body).toHaveProperty('success', true);
-    expect(response.body).toHaveProperty('message');
-  });
-
-  test('POST /api/auth/register should validate required fields', async () => {
-    const response = await request(app)
-      .post('/api/auth/register')
-      .send({})
-      .expect(400);
-
-    expect(response.body).toHaveProperty('success', false);
-    expect(response.body).toHaveProperty('error');
-  });
-});
+// Mock token for authentication tests
+const mockToken = 'mock-jwt-token';
 
 describe('Sentence API', () => {
-  const mockToken = 'mock-firebase-token';
   const mockUserId = 'test-user-id';
-
-  beforeEach(() => {
-    const { adminAuth } = require('../firebase-admin');
-    adminAuth.verifyIdToken.mockResolvedValue({
-      uid: mockUserId,
-      email: 'test@example.com'
-    });
-  });
 
   test('POST /api/sentences/create should create new sentence', async () => {
     const sentenceData = {
@@ -165,7 +123,6 @@ describe('Sentence API', () => {
 
     const response = await request(app)
       .post('/api/sentences/create')
-      .set('Authorization', `Bearer ${mockToken}`)
       .send(sentenceData)
       .expect(201);
 
@@ -176,7 +133,6 @@ describe('Sentence API', () => {
   test('GET /api/sentences/list should return user sentences', async () => {
     const response = await request(app)
       .get('/api/sentences/list')
-      .set('Authorization', `Bearer ${mockToken}`)
       .expect(200);
 
     expect(response.body).toHaveProperty('success', true);
@@ -190,7 +146,7 @@ describe('Sentence API', () => {
     };
 
     // Mock sentence and user data
-    const { adminDb } = require('../firebase-admin');
+    const { db } = require('../firebase-sdk');
     const mockSentenceDoc = {
       exists: true,
       data: () => ({
@@ -210,13 +166,12 @@ describe('Sentence API', () => {
       })
     };
 
-    adminDb.collection().doc().get
+    db.collection().doc().get
       .mockResolvedValueOnce(mockSentenceDoc)
       .mockResolvedValueOnce(mockUserDoc);
 
     const response = await request(app)
       .post('/api/sentences/analyze')
-      .set('Authorization', `Bearer ${mockToken}`)
       .send(analyzeData)
       .expect(200);
 
@@ -226,20 +181,11 @@ describe('Sentence API', () => {
 });
 
 describe('Credit API', () => {
-  const mockToken = 'mock-firebase-token';
   const mockUserId = 'test-user-id';
-
-  beforeEach(() => {
-    const { adminAuth } = require('../firebase-admin');
-    adminAuth.verifyIdToken.mockResolvedValue({
-      uid: mockUserId,
-      email: 'test@example.com'
-    });
-  });
 
   test('GET /api/credits/balance should return user credit balance', async () => {
     // Mock user data
-    const { adminDb } = require('../firebase-admin');
+    const { db } = require('../firebase-sdk');
     const mockUserDoc = {
       exists: true,
       data: () => ({
@@ -248,21 +194,20 @@ describe('Credit API', () => {
       })
     };
 
-    adminDb.collection().doc().get.mockResolvedValue(mockUserDoc);
+    db.collection().doc().get.mockResolvedValue(mockUserDoc);
 
     const response = await request(app)
       .get('/api/credits/balance')
-      .set('Authorization', `Bearer ${mockToken}`)
       .expect(200);
 
     expect(response.body).toHaveProperty('success', true);
-    expect(response.body).toHaveProperty('balance', 10);
+    expect(response.body).toHaveProperty('data');
+    expect(response.body.data).toHaveProperty('creditBalance', 10);
   });
 
   test('GET /api/credits/history should return credit transaction history', async () => {
     const response = await request(app)
-      .get('/api/credits/history')
-      .set('Authorization', `Bearer ${mockToken}`);
+      .get('/api/credits/history');
 
     // Log the response for debugging
     console.log('Credit history response:', response.status, response.body);
@@ -291,14 +236,15 @@ describe('Error Handling', () => {
     expect(response.body).toHaveProperty('error', 'Endpoint not found');
   });
 
-  test('POST /api/sentences/analyze without auth should return 401', async () => {
+  test('POST /api/sentences/analyze without auth should work (auth removed)', async () => {
     const response = await request(app)
       .post('/api/sentences/analyze')
-      .send({ sentenceId: 'test' })
-      .expect(401);
+      .send({ englishSentence: 'Hello world' })
+      .timeout(10000)
+      .expect(200);
 
-    expect(response.body).toHaveProperty('success', false);
-    expect(response.body).toHaveProperty('error');
+    expect(response.body).toHaveProperty('success', true);
+    expect(response.body).toHaveProperty('data');
   });
 });
 

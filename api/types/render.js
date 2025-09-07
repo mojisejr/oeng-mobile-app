@@ -6,24 +6,46 @@ exports.enhanceResponse = enhanceResponse;
 async function parseRequestBody(req) {
     return new Promise((resolve, reject) => {
         let body = '';
+        let resolved = false;
+        const timeout = setTimeout(() => {
+            if (!resolved) {
+                resolved = true;
+                console.log('Request timeout - body received so far:', JSON.stringify(body));
+                reject(new Error('Request timeout'));
+            }
+        }, 30000);
         req.on('data', (chunk) => {
+            console.log('Received data chunk:', chunk.toString());
             body += chunk.toString();
         });
         req.on('end', () => {
-            try {
-                if (body) {
-                    resolve(JSON.parse(body));
+            if (!resolved) {
+                resolved = true;
+                clearTimeout(timeout);
+                try {
+                    console.log('Raw body received:', JSON.stringify(body));
+                    if (body) {
+                        const parsed = JSON.parse(body);
+                        console.log('Parsed body:', parsed);
+                        resolve(parsed);
+                    }
+                    else {
+                        resolve({});
+                    }
                 }
-                else {
-                    resolve({});
+                catch (error) {
+                    console.error('JSON parse error:', error instanceof Error ? error.message : String(error));
+                    console.error('Body that failed to parse:', JSON.stringify(body));
+                    reject(new Error('Invalid JSON in request body'));
                 }
-            }
-            catch (error) {
-                reject(error);
             }
         });
         req.on('error', (error) => {
-            reject(error);
+            if (!resolved) {
+                resolved = true;
+                clearTimeout(timeout);
+                reject(error);
+            }
         });
     });
 }
