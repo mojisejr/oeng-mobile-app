@@ -15,13 +15,15 @@ import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../../contexts/AuthContext';
 import { validateRegistrationForm, getFirebaseErrorMessage } from '../../lib/auth';
 import type { RegistrationFormData } from '../../lib/auth';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { Ionicons } from '@expo/vector-icons';
 
 /**
  * Sign Up Screen
  * Handles user registration with Firebase Auth
  */
 export default function SignUpScreen() {
-  const { signUp } = useAuth();
+  const { signUp, signInWithGoogle } = useAuth();
   const [formData, setFormData] = useState<RegistrationFormData>({
     email: '',
     password: '',
@@ -62,6 +64,18 @@ export default function SignUpScreen() {
     } catch (error: any) {
       const errorMessage = getFirebaseErrorMessage(error.code);
       Alert.alert('สมัครสมาชิกไม่สำเร็จ', errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      await signInWithGoogle();
+      router.replace('/explore' as any);
+    } catch (error: any) {
+      Alert.alert('สมัครสมาชิกด้วย Google ไม่สำเร็จ', error.message || 'เกิดข้อผิดพลาดในการสมัครสมาชิก');
     } finally {
       setLoading(false);
     }
@@ -194,6 +208,29 @@ export default function SignUpScreen() {
                   สร้างบัญชี
                 </Text>
               )}
+            </TouchableOpacity>
+
+            {/* Divider */}
+            <View className="flex-row items-center my-6">
+              <View className="flex-1 h-px bg-gray-300" />
+              <Text className="mx-4 text-gray-500 text-sm">
+                หรือ
+              </Text>
+              <View className="flex-1 h-px bg-gray-300" />
+            </View>
+
+            {/* Google Sign-In Button */}
+            <TouchableOpacity
+              className={`border border-gray-300 rounded-lg py-4 flex-row items-center justify-center ${
+                loading ? 'opacity-50' : ''
+              }`}
+              onPress={handleGoogleSignIn}
+              disabled={loading}
+            >
+              <Ionicons name="logo-google" size={20} color="#4285F4" />
+              <Text className="ml-3 text-gray-700 font-medium text-base">
+                สมัครสมาชิกด้วย Google
+              </Text>
             </TouchableOpacity>
           </View>
 

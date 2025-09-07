@@ -15,13 +15,15 @@ import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../../contexts/AuthContext';
 import { validateLoginForm, getFirebaseErrorMessage } from '../../lib/auth';
 import type { LoginFormData } from '../../lib/auth';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { Ionicons } from '@expo/vector-icons';
 
 /**
  * Login Screen
  * Handles user authentication with Firebase Auth
  */
 export default function LoginScreen() {
-  const { signIn } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: '',
@@ -57,6 +59,18 @@ export default function LoginScreen() {
     } catch (error: any) {
       const errorMessage = getFirebaseErrorMessage(error.code);
       Alert.alert('เข้าสู่ระบบไม่สำเร็จ', errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      await signInWithGoogle();
+      router.replace('/explore' as any);
+    } catch (error: any) {
+      Alert.alert('เข้าสู่ระบบด้วย Google ไม่สำเร็จ', error.message || 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ');
     } finally {
       setLoading(false);
     }
@@ -154,6 +168,29 @@ export default function LoginScreen() {
             <TouchableOpacity className="mt-4">
               <Text className="text-blue-600 text-center text-base">
                 ลืมรหัสผ่าน?
+              </Text>
+            </TouchableOpacity>
+
+            {/* Divider */}
+            <View className="flex-row items-center my-6">
+              <View className="flex-1 h-px bg-gray-300" />
+              <Text className="mx-4 text-gray-500 text-sm">
+                หรือ
+              </Text>
+              <View className="flex-1 h-px bg-gray-300" />
+            </View>
+
+            {/* Google Sign-In Button */}
+            <TouchableOpacity
+              className={`border border-gray-300 rounded-lg py-4 flex-row items-center justify-center ${
+                loading ? 'opacity-50' : ''
+              }`}
+              onPress={handleGoogleSignIn}
+              disabled={loading}
+            >
+              <Ionicons name="logo-google" size={20} color="#4285F4" />
+              <Text className="ml-3 text-gray-700 font-medium text-base">
+                เข้าสู่ระบบด้วย Google
               </Text>
             </TouchableOpacity>
           </View>

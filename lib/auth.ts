@@ -4,6 +4,7 @@
  */
 
 import { User } from 'firebase/auth';
+import { GoogleSignin, GoogleSigninButton, statusCodes } from '@react-native-google-signin/google-signin';
 
 // Email validation regex pattern
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -269,4 +270,122 @@ export type RegistrationFormData = {
 export type ValidationResult = {
   isValid: boolean;
   errors: { [key: string]: string };
+};
+
+/**
+ * Google Sign-In Configuration
+ */
+export const configureGoogleSignIn = () => {
+  GoogleSignin.configure({
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID, // From Firebase Console
+    offlineAccess: true,
+    hostedDomain: '',
+    forceCodeForRefreshToken: true,
+  });
+};
+
+/**
+ * Google Sign-In Helper Functions
+ */
+export const signInWithGoogle = async (): Promise<{
+  success: boolean;
+  user?: any;
+  error?: string;
+}> => {
+  try {
+    await GoogleSignin.hasPlayServices();
+    const userInfo = await GoogleSignin.signIn();
+    
+    return {
+      success: true,
+      user: userInfo,
+    };
+  } catch (error: any) {
+    let errorMessage = 'เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย Google';
+    
+    if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+      errorMessage = 'การเข้าสู่ระบบถูกยกเลิก';
+    } else if (error.code === statusCodes.IN_PROGRESS) {
+      errorMessage = 'กำลังดำเนินการเข้าสู่ระบบ';
+    } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+      errorMessage = 'Google Play Services ไม่พร้อมใช้งาน';
+    }
+    
+    return {
+      success: false,
+      error: errorMessage,
+    };
+  }
+};
+
+/**
+ * Sign out from Google
+ */
+export const signOutFromGoogle = async (): Promise<{
+  success: boolean;
+  error?: string;
+}> => {
+  try {
+    await GoogleSignin.signOut();
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: 'เกิดข้อผิดพลาดในการออกจากระบบ Google',
+    };
+  }
+};
+
+/**
+ * Check if user is signed in to Google
+ */
+export const isSignedInToGoogle = async (): Promise<boolean> => {
+  try {
+    const userInfo = await GoogleSignin.getCurrentUser();
+    return userInfo !== null;
+  } catch (error) {
+    return false;
+  }
+};
+
+/**
+ * Get current Google user info
+ */
+export const getCurrentGoogleUser = async (): Promise<any | null> => {
+  try {
+    const userInfo = await GoogleSignin.getCurrentUser();
+    return userInfo;
+  } catch (error) {
+    return null;
+  }
+};
+
+/**
+ * Google Sign-In Error Handler
+ */
+export const getGoogleSignInErrorMessage = (errorCode: string): string => {
+  switch (errorCode) {
+    case statusCodes.SIGN_IN_CANCELLED:
+      return 'การเข้าสู่ระบบถูกยกเลิก';
+    case statusCodes.IN_PROGRESS:
+      return 'กำลังดำเนินการเข้าสู่ระบบ';
+    case statusCodes.PLAY_SERVICES_NOT_AVAILABLE:
+      return 'Google Play Services ไม่พร้อมใช้งาน';
+    default:
+      return 'เกิดข้อผิดพลาดในการเข้าสู่ระบบด้วย Google';
+  }
+};
+
+/**
+ * Authentication Method Types
+ */
+export enum AuthMethod {
+  EMAIL_PASSWORD = 'email_password',
+  GOOGLE = 'google',
+}
+
+export type GoogleSignInResult = {
+  success: boolean;
+  user?: any;
+  error?: string;
 };
