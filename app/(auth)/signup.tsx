@@ -15,7 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../../contexts/AuthContext';
 import { validateRegistrationForm, getFirebaseErrorMessage } from '../../lib/auth';
 import type { RegistrationFormData } from '../../lib/auth';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+// import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { Ionicons } from '@expo/vector-icons';
 
 /**
