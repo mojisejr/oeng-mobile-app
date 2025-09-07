@@ -10,8 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.oengapp",
-      "googleServicesFile": "./GoogleService-Info.plist"
+      "bundleIdentifier": "com.oengapp"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,8 +18,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.oengapp",
-      "googleServicesFile": "./google-services.json"
+      "package": "com.oengapp"
     },
     "web": {
       "bundler": "metro",
@@ -37,8 +35,7 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ],
-      "@react-native-google-signin/google-signin"
+      ]
     ],
     "experiments": {
       "typedRoutes": true

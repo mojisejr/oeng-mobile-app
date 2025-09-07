@@ -1,2 +1,2 @@
-export { AuthProvider, useAuth } from './AuthContext';
-export type { AuthContextType } from './AuthContext';
+// AuthContext removed as part of Firebase Auth cleanup
+// All authentication exports have been removed

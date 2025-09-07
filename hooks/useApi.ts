@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
 
 interface ApiOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
@@ -17,23 +16,16 @@ export function useApi<T = any>() {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { user } = useAuth();
 
   const request = useCallback(async (url: string, options: ApiOptions = {}): Promise<T | null> => {
     setLoading(true);
     setError(null);
 
     try {
-      const token = await user?.getIdToken();
-      
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         ...options.headers,
       };
-
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
 
       const config: RequestInit = {
         method: options.method || 'GET',
@@ -61,7 +53,7 @@ export function useApi<T = any>() {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, []);
 
   const get = useCallback((url: string, headers?: Record<string, string>) => {
     return request(url, { method: 'GET', headers });
