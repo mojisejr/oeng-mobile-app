@@ -1,12 +1,13 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { SSOProvidersList } from '@/components/auth/ClerkAuthComponents';
 import { useClerkAuth } from '@/hooks/useClerkAuth';
 import type { SSOProvider } from '@/config/clerk-sso';
 
 export default function SignUpScreen() {
   const { signInWithOAuth } = useClerkAuth();
+  const router = useRouter();
 
   const handleProviderSelect = async (provider: SSOProvider) => {
     try {
@@ -30,11 +31,9 @@ export default function SignUpScreen() {
         
         <View style={styles.footer}>
           <Text style={styles.footerText}>มีบัญชีอยู่แล้ว? </Text>
-          <Link href="/(auth)/sign-in" asChild>
-            <TouchableOpacity>
-              <Text style={styles.footerLink}>เข้าสู่ระบบ</Text>
-            </TouchableOpacity>
-          </Link>
+          <TouchableOpacity onPress={() => router.push('/(auth)/sign-in')}>
+            <Text style={styles.footerLink}>เข้าสู่ระบบ</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -55,13 +54,7 @@ const styles = StyleSheet.create({
     padding: 20,
     width: '100%',
     maxWidth: 400,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
+    boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)',
     elevation: 5,
   },
   headerTitle: {

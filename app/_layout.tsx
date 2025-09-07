@@ -92,26 +92,18 @@ function AppContent() {
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <Stack>
-        {/* Authentication screens - only show when not signed in */}
-        {!isSignedIn && (
-          <>
-            <Stack.Screen 
-              name="(auth)" 
-              options={{ 
-                headerShown: false,
-                presentation: 'modal'
-              }} 
-            />
-          </>
-        )}
+        {/* Authentication screens */}
+        <Stack.Screen 
+          name="(auth)" 
+          options={{ 
+            headerShown: false,
+            presentation: 'modal'
+          }} 
+        />
         
-        {/* Main app screens - only show when signed in */}
-        {isSignedIn && (
-          <>
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          </>
-        )}
+        {/* Main app screens */}
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         
         {/* Common screens */}
         <Stack.Screen name="+not-found" />
