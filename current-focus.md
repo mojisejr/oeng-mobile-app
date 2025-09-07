@@ -1,28 +1,22 @@
 # Current Focus
 
-**Updated**: 2025-09-07 14:18:29 (Thailand Time)
+**Updated**: 2025-09-07 15:21:36 (Thailand Time)
 
-## Current Context
+## Phase 2.1a: Backend Cleanup Tasks
 
-มี bug เกิดขึ้น ระหว่างการทำ manual testing อยู่ใน file นี้ /docs/deploy/error-logs.md 
-error เกิดขึ้นใน ios ใน expo go app ครับ log ที่ได้มาจาก console ใน folder /docs/deploy/error-logs.md 
+วางแผนทำ phase2.1a โดยทำ **Backend Cleanup Tasks** ก่อน
 
-## Action Plan
+### Context
 
-1. วางแผนการแก้ไขปัญหา 
-2. ทำ manual test แทน automate test เพื่อที่ผมจะได้ทดสอบเอง 
-3. ไม่ต้องใช้ playwright 
-4. ใช้ context7 ช่วย 
-5. make sure ว่า build ผ่านและไม่มี error, linter
+เริ่มต้นการทำงานใน Phase 2.1a ซึ่งจะเน้นไปที่การทำความสะอาดและปรับปรุง Backend ก่อนที่จะดำเนินการในขั้นตอนถัดไป ตามแผนงานที่กำหนดไว้ใน docs/plan.md
 
-## Status
-- ✅ Context saved and GitHub Context Issue #39 created
-- ✅ Comprehensive fix plan created in GitHub Task Issue #40
-- 🔄 Ready for `=impl` command to execute the plan
+### Priority Tasks
 
-## GitHub Issues
-- **Context Issue**: #39 - iOS Expo Go App Bug Context
-- **Task Issue**: #40 - แผนการแก้ไข iOS Expo Go App Bugs - RNGoogleSignin และ AsyncStorage Warnings
+1. Remove Firebase Auth Dependencies
+2. Clean up unused backend code
+3. Optimize API structure
+4. Prepare for next phase implementation
 
-## Next Steps
-ใช้คำสั่ง `=impl > เริ่มแก้ไข bugs ตามแผนใน Issue #40` เพื่อเริ่มดำเนินการแก้ไขปัญหา
+---
+
+*This file is automatically managed by the Context Management Agent*

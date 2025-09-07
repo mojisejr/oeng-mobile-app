@@ -25,9 +25,7 @@
     "@google/generative-ai": "^0.24.1",
     "@react-native-async-storage/async-storage": "^2.1.2",
     "@react-native-firebase/app": "^23.3.0",
-    "@react-native-firebase/auth": "^23.3.0",
     "@react-native-firebase/messaging": "^23.3.0",
-    "@react-native-google-signin/google-signin": "^15.0.0",
     "@react-navigation/native": "^7.1.6",
     "@stripe/stripe-react-native": "0.45.0",
     "clsx": "^2.1.1",
@@ -101,9 +99,7 @@
       "node_modules/(?!(expo|@expo|firebase|@firebase)/)"
     ],
     "moduleNameMapper": {
-      "^@/(.*)$": "<rootDir>/$1",
-      "^../firebase-sdk$": "<rootDir>/tests/__mocks__/firebase-sdk.js",
-      "^../../firebase-sdk$": "<rootDir>/tests/__mocks__/firebase-sdk.js"
+      "^@/(.*)$": "<rootDir>/$1"
     }
   },
   "private": true
