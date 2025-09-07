@@ -2,8 +2,9 @@ import { db } from '../../firebase-sdk';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { createSuccessResponse, createErrorResponse, setCorsHeaders, handleOptionsRequest } from '../utils/response';
 import { COLLECTION_PATHS, VALIDATION_RULES } from '../utils/db-schema';
+import { withAuth, type AuthenticatedRequest } from '../utils/auth-middleware';
 
-export default async function handler(req: any, res: any) {
+async function updateHandler(req: AuthenticatedRequest, res: any) {
   // Handle CORS
   setCorsHeaders(res);
   
@@ -16,16 +17,11 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    // Get user ID from Authorization header
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return createErrorResponse(res, 'Authorization token required', 401);
-    }
-
-    const userId = req.headers['x-user-id']; // Temporary solution
+    // Get Clerk user ID from authenticated request
+    const clerkUserId = req.user?.id;
     
-    if (!userId) {
-      return createErrorResponse(res, 'User ID required', 401);
+    if (!clerkUserId) {
+      return createErrorResponse(res, 'User authentication required', 401);
     }
 
     // Get sentence ID from query parameters
@@ -45,101 +41,72 @@ export default async function handler(req: any, res: any) {
 
     const currentData = sentenceSnap.data();
 
-    // Check if user owns this sentence
-    if (currentData.userId !== userId) {
-      return createErrorResponse(res, 'Access denied. You can only update your own sentences', 403);
+    // Check if user owns this sentence (check both userId and clerkUserId for backward compatibility)
+    if (currentData.clerkUserId !== clerkUserId && currentData.userId !== clerkUserId) {
+      return createErrorResponse(res, 'Access denied', 403);
     }
 
-    // Check if sentence is already analyzed (prevent editing analyzed sentences)
-    if (currentData.status === 'analyzed') {
-      return createErrorResponse(res, 'Cannot update analyzed sentences', 400);
-    }
+    // Parse request body
+    const { englishSentence, userTranslation, context, isFavorite, tags } = req.body;
 
-    const { englishSentence, userTranslation, context, isFavorite } = req.body;
+    // Validate fields if provided
+    const updateData: any = {};
 
-    // Prepare update data
-    const updateData: any = {
-      updatedAt: serverTimestamp(),
-    };
-
-    // Validate and update English sentence if provided
     if (englishSentence !== undefined) {
       if (typeof englishSentence !== 'string') {
         return createErrorResponse(res, 'English sentence must be a string', 400);
       }
-
-      const trimmedSentence = englishSentence.trim();
       
-      if (trimmedSentence.length < VALIDATION_RULES.ENGLISH_SENTENCE.minLength) {
-        return createErrorResponse(
-          res,
-          `English sentence must be at least ${VALIDATION_RULES.ENGLISH_SENTENCE.minLength} characters long`,
-          400
-        );
+      const trimmed = englishSentence.trim();
+      if (trimmed.length < VALIDATION_RULES.ENGLISH_SENTENCE.minLength) {
+        return createErrorResponse(res, `English sentence must be at least ${VALIDATION_RULES.ENGLISH_SENTENCE.minLength} characters`, 400);
       }
-
-      if (trimmedSentence.length > VALIDATION_RULES.ENGLISH_SENTENCE.maxLength) {
-        return createErrorResponse(
-          res,
-          `English sentence must not exceed ${VALIDATION_RULES.ENGLISH_SENTENCE.maxLength} characters`,
-          400
-        );
+      
+      if (trimmed.length > VALIDATION_RULES.ENGLISH_SENTENCE.maxLength) {
+        return createErrorResponse(res, `English sentence must not exceed ${VALIDATION_RULES.ENGLISH_SENTENCE.maxLength} characters`, 400);
       }
-
-      if (!VALIDATION_RULES.ENGLISH_SENTENCE.pattern.test(trimmedSentence)) {
-        return createErrorResponse(
-          res,
-          'English sentence contains invalid characters',
-          400
-        );
+      
+      if (!VALIDATION_RULES.ENGLISH_SENTENCE.pattern.test(trimmed)) {
+        return createErrorResponse(res, 'English sentence contains invalid characters', 400);
       }
-
-      updateData.englishSentence = trimmedSentence;
+      
+      updateData.englishSentence = trimmed;
     }
 
-    // Validate and update user translation if provided
     if (userTranslation !== undefined) {
       if (userTranslation === null || userTranslation === '') {
         updateData.userTranslation = null;
-      } else if (typeof userTranslation === 'string') {
-        const trimmedTranslation = userTranslation.trim();
-        
-        if (trimmedTranslation.length > VALIDATION_RULES.USER_TRANSLATION.maxLength) {
-          return createErrorResponse(
-            res,
-            `User translation must not exceed ${VALIDATION_RULES.USER_TRANSLATION.maxLength} characters`,
-            400
-          );
-        }
-
-        updateData.userTranslation = trimmedTranslation || null;
       } else {
-        return createErrorResponse(res, 'User translation must be a string or null', 400);
+        if (typeof userTranslation !== 'string') {
+          return createErrorResponse(res, 'User translation must be a string', 400);
+        }
+        
+        const trimmed = userTranslation.trim();
+        if (trimmed.length > VALIDATION_RULES.USER_TRANSLATION.maxLength) {
+          return createErrorResponse(res, `User translation must not exceed ${VALIDATION_RULES.USER_TRANSLATION.maxLength} characters`, 400);
+        }
+        
+        updateData.userTranslation = trimmed;
       }
     }
 
-    // Validate and update context if provided
     if (context !== undefined) {
       if (context === null || context === '') {
         updateData.context = null;
-      } else if (typeof context === 'string') {
-        const trimmedContext = context.trim();
-        
-        if (trimmedContext.length > VALIDATION_RULES.CONTEXT.maxLength) {
-          return createErrorResponse(
-            res,
-            `Context must not exceed ${VALIDATION_RULES.CONTEXT.maxLength} characters`,
-            400
-          );
-        }
-
-        updateData.context = trimmedContext || null;
       } else {
-        return createErrorResponse(res, 'Context must be a string or null', 400);
+        if (typeof context !== 'string') {
+          return createErrorResponse(res, 'Context must be a string', 400);
+        }
+        
+        const trimmed = context.trim();
+        if (trimmed.length > VALIDATION_RULES.CONTEXT.maxLength) {
+          return createErrorResponse(res, `Context must not exceed ${VALIDATION_RULES.CONTEXT.maxLength} characters`, 400);
+        }
+        
+        updateData.context = trimmed;
       }
     }
 
-    // Update favorite status if provided
     if (isFavorite !== undefined) {
       if (typeof isFavorite !== 'boolean') {
         return createErrorResponse(res, 'isFavorite must be a boolean', 400);
@@ -147,9 +114,35 @@ export default async function handler(req: any, res: any) {
       updateData.isFavorite = isFavorite;
     }
 
+    if (tags !== undefined) {
+      if (!Array.isArray(tags)) {
+        return createErrorResponse(res, 'Tags must be an array', 400);
+      }
+      
+      // Validate and clean tags
+      const cleanTags = tags
+        .filter(tag => typeof tag === 'string' && tag.trim().length > 0)
+        .map(tag => tag.trim().toLowerCase())
+        .slice(0, 10); // Limit to 10 tags
+      
+      updateData.tags = cleanTags;
+    }
+
     // Check if there are any fields to update
-    if (Object.keys(updateData).length === 1) { // Only updatedAt
+    if (Object.keys(updateData).length === 0) {
       return createErrorResponse(res, 'No valid fields provided for update', 400);
+    }
+
+    // Add timestamp
+    updateData.updatedAt = serverTimestamp();
+
+    // If updating core content and sentence was analyzed, reset analysis
+    if (updateData.englishSentence || updateData.userTranslation || updateData.context) {
+      if (currentData.status === 'analyzed') {
+        updateData.status = 'pending';
+        updateData.analysis = null;
+        updateData.analyzedAt = null;
+      }
     }
 
     // Update the document
@@ -159,40 +152,17 @@ export default async function handler(req: any, res: any) {
     const updatedSnap = await getDoc(sentenceRef);
     const updatedData = updatedSnap.data();
 
-    // Prepare response data
-    const responseData = {
-      id: updatedSnap.id,
+    const response = {
       ...updatedData,
-      // Convert Firestore timestamps to ISO strings
-      createdAt: updatedData?.createdAt?.toDate?.()?.toISOString() || updatedData?.createdAt,
-      updatedAt: updatedData?.updatedAt?.toDate?.()?.toISOString() || updatedData?.updatedAt,
-      analyzedAt: updatedData?.analyzedAt?.toDate?.()?.toISOString() || updatedData?.analyzedAt,
+      id: updatedSnap.id
     };
 
-    return createSuccessResponse(
-      res,
-      responseData,
-      'Sentence updated successfully'
-    );
+    return createSuccessResponse(res, response, 'Sentence updated successfully');
 
-  } catch (error: any) {
-    console.error('Update sentence error:', error);
-
-    // Handle Firestore errors
-    if (error.message?.includes('firestore') || error.code?.startsWith('firestore/')) {
-      return createErrorResponse(res, 'Database error. Please try again', 500);
-    }
-
-    // Handle permission errors
-    if (error.code === 'permission-denied') {
-      return createErrorResponse(res, 'Permission denied. Please check your authentication', 403);
-    }
-
-    // Handle invalid document ID
-    if (error.code === 'invalid-argument') {
-      return createErrorResponse(res, 'Invalid sentence ID format', 400);
-    }
-
-    return createErrorResponse(res, 'Failed to update sentence. Please try again', 500);
+  } catch (error) {
+    console.error('Error updating sentence:', error);
+    return createErrorResponse(res, 'Failed to update sentence', 500);
   }
 }
+
+export default withAuth(updateHandler);

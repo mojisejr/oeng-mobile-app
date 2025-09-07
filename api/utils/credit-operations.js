@@ -4,14 +4,23 @@ exports.deductCredits = deductCredits;
 exports.addCredits = addCredits;
 exports.getCreditBalance = getCreditBalance;
 exports.grantFreeCredits = grantFreeCredits;
-async function deductCredits(userId, amount, description, relatedDocumentId) {
+const firebase_1 = require("./firebase");
+async function deductCredits(clerkUserId, amount, description, relatedDocumentId) {
     try {
-        const mockBalance = 10;
-        const newBalance = Math.max(0, mockBalance - amount);
+        const currentBalance = await firebase_1.creditOperations.getBalance(clerkUserId);
+        if (currentBalance < amount) {
+            return {
+                success: false,
+                newBalance: currentBalance,
+                error: 'Insufficient credits'
+            };
+        }
+        await firebase_1.creditOperations.deduct(clerkUserId, amount, description, relatedDocumentId);
+        const newBalance = await firebase_1.creditOperations.getBalance(clerkUserId);
         return {
             success: true,
             newBalance,
-            transactionId: 'mock-transaction-id'
+            transactionId: `deduct-${Date.now()}`
         };
     }
     catch (error) {
@@ -19,18 +28,25 @@ async function deductCredits(userId, amount, description, relatedDocumentId) {
         return {
             success: false,
             newBalance: 0,
-            error: 'Failed to deduct credits'
+            error: error instanceof Error ? error.message : 'Failed to deduct credits'
         };
     }
 }
-async function addCredits(userId, amount, description, type = 'add', relatedDocumentId) {
+async function addCredits(clerkUserId, amount, description, type = 'add', relatedDocumentId) {
     try {
-        const mockBalance = 10;
-        const newBalance = mockBalance + amount;
+        const currentBalance = await firebase_1.creditOperations.getBalance(clerkUserId);
+        if (type === 'purchase' && relatedDocumentId) {
+            await firebase_1.creditOperations.add(clerkUserId, amount, relatedDocumentId);
+        }
+        else {
+            const transactionId = `${type}-${Date.now()}`;
+            await firebase_1.creditOperations.add(clerkUserId, amount, transactionId);
+        }
+        const newBalance = await firebase_1.creditOperations.getBalance(clerkUserId);
         return {
             success: true,
             newBalance,
-            transactionId: 'mock-transaction-id'
+            transactionId: `add-${Date.now()}`
         };
     }
     catch (error) {
@@ -38,19 +54,19 @@ async function addCredits(userId, amount, description, type = 'add', relatedDocu
         return {
             success: false,
             newBalance: 0,
-            error: 'Failed to add credits'
+            error: error instanceof Error ? error.message : 'Failed to add credits'
         };
     }
 }
-async function getCreditBalance(userId) {
+async function getCreditBalance(clerkUserId) {
     try {
-        return 10;
+        return await firebase_1.creditOperations.getBalance(clerkUserId);
     }
     catch (error) {
         console.error('Get credit balance error:', error);
         return 0;
     }
 }
-async function grantFreeCredits(userId, amount = 3) {
-    return addCredits(userId, amount, 'Free credits for new user', 'add');
+async function grantFreeCredits(clerkUserId, amount = 3) {
+    return addCredits(clerkUserId, amount, 'Free credits for new user', 'add');
 }

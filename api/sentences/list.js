@@ -1,11 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.default = handler;
 const firebase_sdk_1 = require("../../firebase-sdk");
 const firestore_1 = require("firebase/firestore");
 const response_1 = require("../utils/response");
 const db_schema_1 = require("../utils/db-schema");
-async function handler(req, res) {
+const auth_middleware_1 = require("../utils/auth-middleware");
+async function listHandler(req, res) {
     (0, response_1.setCorsHeaders)(res);
     if (req.method === 'OPTIONS') {
         return (0, response_1.handleOptionsRequest)(res);
@@ -14,86 +14,61 @@ async function handler(req, res) {
         return (0, response_1.createErrorResponse)(res, 'Method not allowed', 405);
     }
     try {
-        const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return (0, response_1.createErrorResponse)(res, 'Authorization token required', 401);
-        }
-        const userId = req.headers['x-user-id'];
-        if (!userId) {
-            return (0, response_1.createErrorResponse)(res, 'User ID required', 401);
+        const clerkUserId = req.user?.id;
+        if (!clerkUserId) {
+            return (0, response_1.createErrorResponse)(res, 'User authentication required', 401);
         }
         const { status, search, pageSize = '20', lastDocId, sortBy = 'createdAt', sortOrder = 'desc' } = req.query;
         const pageSizeNum = parseInt(pageSize);
         if (isNaN(pageSizeNum) || pageSizeNum < 1 || pageSizeNum > 50) {
             return (0, response_1.createErrorResponse)(res, 'Page size must be between 1 and 50', 400);
         }
-        let sentencesQuery = (0, firestore_1.query)((0, firestore_1.collection)(firebase_sdk_1.db, db_schema_1.COLLECTION_PATHS.SENTENCES), (0, firestore_1.where)('userId', '==', userId));
-        if (status && ['pending', 'analyzed'].includes(status)) {
-            sentencesQuery = (0, firestore_1.query)(sentencesQuery, (0, firestore_1.where)('status', '==', status));
+        let sentencesQuery = (0, firestore_1.query)((0, firestore_1.collection)(firebase_sdk_1.db, db_schema_1.COLLECTION_PATHS.SENTENCES), (0, firestore_1.where)('clerkUserId', '==', clerkUserId), (0, firestore_1.orderBy)(sortBy, sortOrder), (0, firestore_1.limit)(pageSizeNum));
+        if (status && (status === 'pending' || status === 'analyzed')) {
+            sentencesQuery = (0, firestore_1.query)((0, firestore_1.collection)(firebase_sdk_1.db, db_schema_1.COLLECTION_PATHS.SENTENCES), (0, firestore_1.where)('clerkUserId', '==', clerkUserId), (0, firestore_1.where)('status', '==', status), (0, firestore_1.orderBy)(sortBy, sortOrder), (0, firestore_1.limit)(pageSizeNum));
         }
-        const validSortFields = ['createdAt', 'updatedAt', 'englishSentence'];
-        const sortField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
-        const sortDirection = sortOrder === 'asc' ? 'asc' : 'desc';
-        sentencesQuery = (0, firestore_1.query)(sentencesQuery, (0, firestore_1.orderBy)(sortField, sortDirection));
         if (lastDocId) {
-            try {
-                const lastDocRef = (0, firestore_1.doc)(firebase_sdk_1.db, db_schema_1.COLLECTION_PATHS.SENTENCES, lastDocId);
-                const lastDocSnap = await (0, firestore_1.getDoc)(lastDocRef);
-                if (lastDocSnap.exists()) {
-                    sentencesQuery = (0, firestore_1.query)(sentencesQuery, (0, firestore_1.startAfter)(lastDocSnap));
-                }
-            }
-            catch (error) {
-                return (0, response_1.createErrorResponse)(res, 'Invalid lastDocId parameter', 400);
+            const lastDocRef = (0, firestore_1.doc)(firebase_sdk_1.db, db_schema_1.COLLECTION_PATHS.SENTENCES, lastDocId);
+            const lastDocSnap = await (0, firestore_1.getDoc)(lastDocRef);
+            if (lastDocSnap.exists()) {
+                sentencesQuery = (0, firestore_1.query)(sentencesQuery, (0, firestore_1.startAfter)(lastDocSnap));
             }
         }
-        sentencesQuery = (0, firestore_1.query)(sentencesQuery, (0, firestore_1.limit)(pageSizeNum));
         const querySnapshot = await (0, firestore_1.getDocs)(sentencesQuery);
         let sentences = [];
         querySnapshot.forEach((doc) => {
             const data = doc.data();
             sentences.push({
-                id: doc.id,
                 ...data,
-                createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
-                updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
-                analyzedAt: data.analyzedAt?.toDate?.()?.toISOString() || data.analyzedAt,
+                id: doc.id
             });
         });
         if (search && typeof search === 'string') {
             const searchTerm = search.toLowerCase().trim();
             sentences = sentences.filter(sentence => sentence.englishSentence.toLowerCase().includes(searchTerm) ||
-                sentence.userTranslation?.toLowerCase().includes(searchTerm) ||
-                sentence.context?.toLowerCase().includes(searchTerm));
+                (sentence.userTranslation && sentence.userTranslation.toLowerCase().includes(searchTerm)) ||
+                (sentence.context && sentence.context.toLowerCase().includes(searchTerm)));
         }
-        const hasMore = querySnapshot.docs.length === pageSizeNum;
-        const lastDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
-        const nextPageToken = hasMore && lastDoc ? lastDoc.id : null;
-        const responseData = {
+        const response = {
             sentences,
             pagination: {
+                hasMore: sentences.length === pageSizeNum,
+                lastDocId: sentences.length > 0 ? sentences[sentences.length - 1].id : null,
                 pageSize: pageSizeNum,
-                hasMore,
-                nextPageToken,
                 total: sentences.length
             },
             filters: {
-                status: status || null,
-                search: search || null,
-                sortBy: sortField,
-                sortOrder: sortDirection
+                status: status || 'all',
+                search: search || '',
+                sortBy,
+                sortOrder
             }
         };
-        return (0, response_1.createSuccessResponse)(res, responseData, 'Sentences retrieved successfully');
+        return (0, response_1.createSuccessResponse)(res, response, 'Sentences retrieved successfully');
     }
     catch (error) {
-        console.error('List sentences error:', error);
-        if (error.message?.includes('firestore') || error.code?.startsWith('firestore/')) {
-            return (0, response_1.createErrorResponse)(res, 'Database error. Please try again', 500);
-        }
-        if (error.code === 'permission-denied') {
-            return (0, response_1.createErrorResponse)(res, 'Permission denied. Please check your authentication', 403);
-        }
-        return (0, response_1.createErrorResponse)(res, 'Failed to retrieve sentences. Please try again', 500);
+        console.error('Error retrieving sentences:', error);
+        return (0, response_1.createErrorResponse)(res, 'Failed to retrieve sentences', 500);
     }
 }
+exports.default = (0, auth_middleware_1.withAuth)(listHandler);

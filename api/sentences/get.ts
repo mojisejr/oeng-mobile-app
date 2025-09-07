@@ -3,8 +3,9 @@ import { doc, getDoc } from 'firebase/firestore';
 import { createSuccessResponse, createErrorResponse, setCorsHeaders, handleOptionsRequest } from '../utils/response';
 import { COLLECTION_PATHS } from '../utils/db-schema';
 import type { SentenceDocument } from '../utils/db-schema';
+import { withAuth, type AuthenticatedRequest } from '../utils/auth-middleware';
 
-export default async function handler(req: any, res: any) {
+async function getHandler(req: AuthenticatedRequest, res: any) {
   // Handle CORS
   setCorsHeaders(res);
   
@@ -17,16 +18,11 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    // Get user ID from Authorization header
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return createErrorResponse(res, 'Authorization token required', 401);
-    }
-
-    const userId = req.headers['x-user-id']; // Temporary solution
+    // Get Clerk user ID from authenticated request
+    const clerkUserId = req.user?.id;
     
-    if (!userId) {
-      return createErrorResponse(res, 'User ID required', 401);
+    if (!clerkUserId) {
+      return createErrorResponse(res, 'User authentication required', 401);
     }
 
     // Get sentence ID from query parameters
@@ -44,47 +40,25 @@ export default async function handler(req: any, res: any) {
       return createErrorResponse(res, 'Sentence not found', 404);
     }
 
-    const sentenceData = sentenceSnap.data();
+    const sentenceData = sentenceSnap.data() as SentenceDocument;
 
-    // Check if user owns this sentence
-    if (sentenceData.userId !== userId) {
-      return createErrorResponse(res, 'Access denied. You can only view your own sentences', 403);
+    // Check if user owns this sentence (check both userId and clerkUserId for backward compatibility)
+    if (sentenceData.clerkUserId !== clerkUserId && sentenceData.userId !== clerkUserId) {
+      return createErrorResponse(res, 'Access denied', 403);
     }
 
     // Prepare response data
-    const responseData = {
-      id: sentenceSnap.id,
+    const response = {
       ...sentenceData,
-      // Convert Firestore timestamps to ISO strings
-      createdAt: sentenceData.createdAt?.toDate?.()?.toISOString() || sentenceData.createdAt,
-      updatedAt: sentenceData.updatedAt?.toDate?.()?.toISOString() || sentenceData.updatedAt,
-      analyzedAt: sentenceData.analyzedAt?.toDate?.()?.toISOString() || sentenceData.analyzedAt,
+      id: sentenceSnap.id
     };
 
-    return createSuccessResponse(
-      res,
-      responseData,
-      'Sentence retrieved successfully'
-    );
+    return createSuccessResponse(res, response, 'Sentence retrieved successfully');
 
-  } catch (error: any) {
-    console.error('Get sentence error:', error);
-
-    // Handle Firestore errors
-    if (error.message?.includes('firestore') || error.code?.startsWith('firestore/')) {
-      return createErrorResponse(res, 'Database error. Please try again', 500);
-    }
-
-    // Handle permission errors
-    if (error.code === 'permission-denied') {
-      return createErrorResponse(res, 'Permission denied. Please check your authentication', 403);
-    }
-
-    // Handle invalid document ID
-    if (error.code === 'invalid-argument') {
-      return createErrorResponse(res, 'Invalid sentence ID format', 400);
-    }
-
-    return createErrorResponse(res, 'Failed to retrieve sentence. Please try again', 500);
+  } catch (error) {
+    console.error('Error retrieving sentence:', error);
+    return createErrorResponse(res, 'Failed to retrieve sentence', 500);
   }
 }
+
+export default withAuth(getHandler);

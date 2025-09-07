@@ -3,7 +3,8 @@ import { Timestamp } from 'firebase/firestore';
 
 // User document structure
 export interface UserDocument {
-  uid: string;
+  uid: string; // Firebase UID (legacy support)
+  clerkUserId?: string; // Clerk User ID (new primary identifier)
   email: string;
   displayName: string;
   photoURL?: string | null;
@@ -14,6 +15,7 @@ export interface UserDocument {
   createdAt: Timestamp;
   lastLoginAt: Timestamp;
   isActive: boolean;
+  authProvider: 'firebase' | 'clerk'; // Track authentication provider
   preferences?: {
     language: 'th' | 'en';
     notifications: boolean;
@@ -24,7 +26,8 @@ export interface UserDocument {
 // Sentence document structure
 export interface SentenceDocument {
   id: string;
-  userId: string;
+  userId: string; // Can be Firebase UID or Clerk User ID
+  clerkUserId?: string; // Clerk User ID for new records
   englishSentence: string;
   userTranslation?: string;
   context?: string;
@@ -102,7 +105,8 @@ export interface AnalysisResult {
 // Payment document structure
 export interface PaymentDocument {
   id: string;
-  userId: string;
+  userId: string; // Can be Firebase UID or Clerk User ID
+  clerkUserId?: string; // Clerk User ID for new records
   amount: number; // in Thai Baht
   credits: number;
   stripePaymentIntentId: string;
@@ -123,7 +127,8 @@ export interface PaymentDocument {
 // Credit transaction document structure
 export interface CreditTransactionDocument {
   id: string;
-  userId: string;
+  userId: string; // Can be Firebase UID or Clerk User ID
+  clerkUserId?: string; // Clerk User ID for new records
   type: 'purchase' | 'usage' | 'bonus' | 'refund';
   amount: number; // positive for additions, negative for deductions
   balanceBefore: number;

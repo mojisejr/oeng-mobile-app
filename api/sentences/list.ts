@@ -3,8 +3,9 @@ import { collection, query, where, orderBy, limit, startAfter, getDocs, doc, get
 import { createSuccessResponse, createErrorResponse, setCorsHeaders, handleOptionsRequest } from '../utils/response';
 import { COLLECTION_PATHS } from '../utils/db-schema';
 import type { SentenceDocument } from '../utils/db-schema';
+import { withAuth, type AuthenticatedRequest } from '../utils/auth-middleware';
 
-export default async function handler(req: any, res: any) {
+async function listHandler(req: AuthenticatedRequest, res: any) {
   // Handle CORS
   setCorsHeaders(res);
   
@@ -17,16 +18,11 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    // Get user ID from Authorization header
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return createErrorResponse(res, 'Authorization token required', 401);
-    }
-
-    const userId = req.headers['x-user-id']; // Temporary solution
+    // Get Clerk user ID from authenticated request
+    const clerkUserId = req.user?.id;
     
-    if (!userId) {
-      return createErrorResponse(res, 'User ID required', 401);
+    if (!clerkUserId) {
+      return createErrorResponse(res, 'User authentication required', 401);
     }
 
     // Parse query parameters
@@ -45,48 +41,37 @@ export default async function handler(req: any, res: any) {
       return createErrorResponse(res, 'Page size must be between 1 and 50', 400);
     }
 
-    // Build query
+    // Build query - search by both userId and clerkUserId for backward compatibility
     let sentencesQuery = query(
       collection(db, COLLECTION_PATHS.SENTENCES),
-      where('userId', '==', userId)
+      where('clerkUserId', '==', clerkUserId),
+      orderBy(sortBy as string, sortOrder as 'asc' | 'desc'),
+      limit(pageSizeNum)
     );
 
     // Add status filter if provided
-    if (status && ['pending', 'analyzed'].includes(status as string)) {
+    if (status && (status === 'pending' || status === 'analyzed')) {
       sentencesQuery = query(
-        sentencesQuery,
-        where('status', '==', status)
+        collection(db, COLLECTION_PATHS.SENTENCES),
+        where('clerkUserId', '==', clerkUserId),
+        where('status', '==', status),
+        orderBy(sortBy as string, sortOrder as 'asc' | 'desc'),
+        limit(pageSizeNum)
       );
     }
 
-    // Add ordering
-    const validSortFields = ['createdAt', 'updatedAt', 'englishSentence'];
-    const sortField = validSortFields.includes(sortBy as string) ? sortBy as string : 'createdAt';
-    const sortDirection = sortOrder === 'asc' ? 'asc' : 'desc';
-    
-    sentencesQuery = query(
-      sentencesQuery,
-      orderBy(sortField, sortDirection)
-    );
-
-    // Add pagination
+    // Handle pagination
     if (lastDocId) {
-      try {
-        const lastDocRef = doc(db, COLLECTION_PATHS.SENTENCES, lastDocId as string);
-        const lastDocSnap = await getDoc(lastDocRef);
-        if (lastDocSnap.exists()) {
-          sentencesQuery = query(
-            sentencesQuery,
-            startAfter(lastDocSnap)
-          );
-        }
-      } catch (error) {
-        return createErrorResponse(res, 'Invalid lastDocId parameter', 400);
+      const lastDocRef = doc(db, COLLECTION_PATHS.SENTENCES, lastDocId as string);
+      const lastDocSnap = await getDoc(lastDocRef);
+      
+      if (lastDocSnap.exists()) {
+        sentencesQuery = query(
+          sentencesQuery,
+          startAfter(lastDocSnap)
+        );
       }
     }
-
-    // Add limit
-    sentencesQuery = query(sentencesQuery, limit(pageSizeNum));
 
     // Execute query
     const querySnapshot = await getDocs(sentencesQuery);
@@ -94,15 +79,11 @@ export default async function handler(req: any, res: any) {
     let sentences: (SentenceDocument & { id: string })[] = [];
     
     querySnapshot.forEach((doc) => {
-      const data = doc.data();
+      const data = doc.data() as SentenceDocument;
       sentences.push({
-        id: doc.id,
         ...data,
-        // Convert Firestore timestamps to ISO strings
-        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
-        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
-        analyzedAt: data.analyzedAt?.toDate?.()?.toISOString() || data.analyzedAt,
-      } as unknown as SentenceDocument & { id: string });
+        id: doc.id
+      });
     });
 
     // Apply text search filter if provided (client-side filtering)
@@ -110,51 +91,34 @@ export default async function handler(req: any, res: any) {
       const searchTerm = search.toLowerCase().trim();
       sentences = sentences.filter(sentence => 
         sentence.englishSentence.toLowerCase().includes(searchTerm) ||
-        sentence.userTranslation?.toLowerCase().includes(searchTerm) ||
-        sentence.context?.toLowerCase().includes(searchTerm)
+        (sentence.userTranslation && sentence.userTranslation.toLowerCase().includes(searchTerm)) ||
+        (sentence.context && sentence.context.toLowerCase().includes(searchTerm))
       );
     }
 
-    // Prepare response metadata
-    const hasMore = querySnapshot.docs.length === pageSizeNum;
-    const lastDoc = querySnapshot.docs[querySnapshot.docs.length - 1];
-    const nextPageToken = hasMore && lastDoc ? lastDoc.id : null;
-
-    const responseData = {
+    // Prepare response
+    const response = {
       sentences,
       pagination: {
+        hasMore: sentences.length === pageSizeNum,
+        lastDocId: sentences.length > 0 ? sentences[sentences.length - 1].id : null,
         pageSize: pageSizeNum,
-        hasMore,
-        nextPageToken,
         total: sentences.length
       },
       filters: {
-        status: status || null,
-        search: search || null,
-        sortBy: sortField,
-        sortOrder: sortDirection
+        status: status || 'all',
+        search: search || '',
+        sortBy,
+        sortOrder
       }
     };
 
-    return createSuccessResponse(
-      res,
-      responseData,
-      'Sentences retrieved successfully'
-    );
+    return createSuccessResponse(res, response, 'Sentences retrieved successfully');
 
-  } catch (error: any) {
-    console.error('List sentences error:', error);
-
-    // Handle Firestore errors
-    if (error.message?.includes('firestore') || error.code?.startsWith('firestore/')) {
-      return createErrorResponse(res, 'Database error. Please try again', 500);
-    }
-
-    // Handle permission errors
-    if (error.code === 'permission-denied') {
-      return createErrorResponse(res, 'Permission denied. Please check your authentication', 403);
-    }
-
-    return createErrorResponse(res, 'Failed to retrieve sentences. Please try again', 500);
+  } catch (error) {
+    console.error('Error retrieving sentences:', error);
+    return createErrorResponse(res, 'Failed to retrieve sentences', 500);
   }
 }
+
+export default withAuth(listHandler);
