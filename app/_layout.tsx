@@ -4,9 +4,10 @@ import {
   ThemeProvider,
 } from "@react-navigation/native";
 import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { View, Text, ActivityIndicator } from "react-native";
+import { useEffect } from "react";
 import "react-native-reanimated";
 import "./global.css";
 import { ClerkProvider, useAuth } from "@clerk/clerk-expo";
@@ -64,8 +65,25 @@ const ClerkErrorScreen = (
 
 // Main app content with auth state handling
 function AppContent() {
-  const { isLoaded } = useAuth();
+  const { isLoaded, isSignedIn } = useAuth();
   const colorScheme = useColorScheme();
+  const router = useRouter();
+  const segments = useSegments();
+
+  // Handle navigation based on auth state
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    const inAuthGroup = segments[0] === '(auth)';
+
+    if (isSignedIn && inAuthGroup) {
+      // Redirect to main app if signed in and in auth screens
+      router.replace('/(tabs)');
+    } else if (!isSignedIn && !inAuthGroup) {
+      // Redirect to auth if not signed in and not in auth screens
+      router.replace('/(auth)/sign-in');
+    }
+  }, [isSignedIn, segments, isLoaded, router]);
 
   if (!isLoaded) {
     return <ClerkLoadingScreen />;
@@ -74,9 +92,30 @@ function AppContent() {
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <Stack>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        {/* Authentication screens - only show when not signed in */}
+        {!isSignedIn && (
+          <>
+            <Stack.Screen 
+              name="(auth)" 
+              options={{ 
+                headerShown: false,
+                presentation: 'modal'
+              }} 
+            />
+          </>
+        )}
+        
+        {/* Main app screens - only show when signed in */}
+        {isSignedIn && (
+          <>
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          </>
+        )}
+        
+        {/* Common screens */}
         <Stack.Screen name="+not-found" />
+        <Stack.Screen name="test" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
