@@ -87,12 +87,6 @@ app.get('/', (req, res) => {
     status: 'running',
     endpoints: {
       health: '/api/health',
-      auth: {
-        register: 'POST /api/auth/register',
-        login: 'POST /api/auth/login',
-        logout: 'POST /api/auth/logout',
-        resetPassword: 'POST /api/auth/reset-password'
-      },
       sentences: {
         create: 'POST /api/sentences/create',
         list: 'GET /api/sentences/list',
@@ -164,19 +158,21 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-// Start server
-const server = app.listen(PORT, () => {
-  console.log(`🚀 AI English Coach API running on port ${PORT}`);
-  console.log(`📍 Health check: http://localhost:${PORT}/api/health`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`💾 Memory limit: ${process.env.NODE_OPTIONS || 'default'}`);
-  console.log(`⏰ Started at: ${new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })} (Thailand time)`);
-});
+// Start server only if not in test environment
+if (process.env.NODE_ENV !== 'test' && require.main === module) {
+  const server = app.listen(PORT, () => {
+    console.log(`🚀 AI English Coach API running on port ${PORT}`);
+    console.log(`📍 Health check: http://localhost:${PORT}/api/health`);
+    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`💾 Memory limit: ${process.env.NODE_OPTIONS || 'default'}`);
+    console.log(`⏰ Started at: ${new Date().toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })} (Thailand time)`);
+  });
 
-// Handle server errors
-server.on('error', (err) => {
-  console.error('Server failed to start:', err);
-  process.exit(1);
-});
+  // Handle server errors
+  server.on('error', (err) => {
+    console.error('Server failed to start:', err);
+    process.exit(1);
+  });
+}
 
 module.exports = app;

@@ -7,19 +7,9 @@ const gemini_1 = require("../ai/gemini");
 Object.defineProperty(exports, "analyzeEnglishSentence", { enumerable: true, get: function () { return gemini_1.analyzeEnglishSentence; } });
 const response_1 = require("../utils/response");
 async function handler(req, res) {
+    console.log('Analyze handler called:', req.method, req.url);
     const request = req;
     const response = (0, render_1.enhanceResponse)(res);
-    if (request.method === 'POST') {
-        try {
-            request.body = await (0, render_1.parseRequestBody)(request);
-        }
-        catch (error) {
-            return response.status(400).json({
-                success: false,
-                error: 'Invalid JSON in request body'
-            });
-        }
-    }
     if (request.method === 'OPTIONS') {
         return (0, response_1.handleOptionsRequest)(response);
     }
@@ -30,8 +20,16 @@ async function handler(req, res) {
             error: 'Method not allowed. Use POST.'
         });
     }
+    console.log('Request body from Express:', req.body);
+    if (!req.body || !req.body.englishSentence) {
+        console.error('Missing englishSentence in request body');
+        return response.status(400).json({
+            success: false,
+            error: 'englishSentence is required'
+        });
+    }
     try {
-        const { sentenceId, englishSentence, userTranslation, context } = request.body;
+        const { sentenceId, englishSentence, userTranslation, context } = req.body;
         if (!sentenceId && !englishSentence) {
             return response.status(400).json({
                 success: false,
@@ -53,8 +51,11 @@ async function handler(req, res) {
             });
         }
         try {
+            console.log('Starting AI analysis for:', sentenceData.englishSentence);
             const analysisResult = await (0, gemini_1.analyzeEnglishSentence)(sentenceData.englishSentence, sentenceData.userTranslation, sentenceData.context);
+            console.log('AI analysis completed successfully');
             const creditsRemaining = currentCredits - 1;
+            console.log('Sending success response with analysis result');
             return response.status(200).json({
                 success: true,
                 data: {

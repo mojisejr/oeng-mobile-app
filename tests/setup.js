@@ -3,7 +3,7 @@
 // Mock environment variables
 process.env.NODE_ENV = 'test';
 process.env.FIREBASE_API_KEY = 'test-api-key';
-process.env.FIREBASE_AUTH_DOMAIN = 'test-project.firebaseapp.com';
+
 process.env.FIREBASE_PROJECT_ID = 'test-project';
 process.env.FIREBASE_STORAGE_BUCKET = 'test-project.appspot.com';
 process.env.FIREBASE_MESSAGING_SENDER_ID = '123456789';
@@ -32,13 +32,50 @@ jest.mock('@google/generative-ai', () => ({
       generateContent: jest.fn().mockResolvedValue({
         response: {
           text: jest.fn().mockReturnValue(JSON.stringify({
-            translationAnalysis: 'Test translation',
-            grammarCorrection: 'Test grammar',
-            spellingCheck: 'Test spelling',
-            vocabularyBreakdown: 'Test vocabulary',
-            alternativeSentences: ['Alternative 1', 'Alternative 2'],
-            contextAnalysis: 'Test context',
-            finalRecommendation: 'Test recommendation'
+            translationAnalysis: {
+              correctTranslation: 'สวัสดีโลก',
+              explanation: 'คำทักทายทั่วไป',
+              accuracy: 'excellent'
+            },
+            grammarCorrection: {
+              mistakes: [],
+              correctedSentence: 'Hello world',
+              overallGrammarScore: 100
+            },
+            spellingCheck: {
+              mistakes: [],
+              correctedSentence: 'Hello world',
+              spellingScore: 100
+            },
+            vocabularyBreakdown: {
+              keyWords: [{
+                word: 'hello',
+                partOfSpeech: 'interjection',
+                meaning: 'คำทักทาย',
+                example: 'Hello, how are you?',
+                difficulty: 'beginner'
+              }],
+              vocabularyLevel: 'beginner'
+            },
+            alternativeSentences: {
+              alternatives: [{
+                sentence: 'Hi there',
+                tone: 'casual',
+                explanation: 'More casual greeting'
+              }]
+            },
+            contextAnalysis: {
+              appropriateness: 'very_appropriate',
+              suggestions: ['Great for casual conversations'],
+              culturalNotes: 'Universal greeting'
+            },
+            finalRecommendation: {
+              overallScore: 95,
+              strengths: ['Clear pronunciation'],
+              improvements: ['Try variations'],
+              nextSteps: 'Practice with different contexts',
+              encouragement: 'Great job!'
+            }
           }))
         }
       })
@@ -46,44 +83,40 @@ jest.mock('@google/generative-ai', () => ({
   }))
 }));
 
-// Mock Firebase Admin SDK
-jest.mock('../firebase-admin', () => ({
-  adminAuth: {
-    verifyIdToken: jest.fn().mockResolvedValue({ uid: 'test-user-id' })
-  },
-  adminDb: {
-    collection: jest.fn().mockReturnValue({
-      doc: jest.fn().mockReturnValue({
-        get: jest.fn().mockResolvedValue({
-          exists: true,
-          data: () => ({ credits: 100 })
-        }),
-        set: jest.fn().mockResolvedValue({}),
-        update: jest.fn().mockResolvedValue({})
-      }),
-      add: jest.fn().mockResolvedValue({ id: 'mock-doc-id' }),
-      where: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      limit: jest.fn().mockReturnThis(),
-      count: jest.fn().mockReturnValue({
-        get: jest.fn().mockResolvedValue({
-          data: () => ({ count: 5 })
-        })
-      }),
-      get: jest.fn().mockResolvedValue({
-        docs: [
-          {
-            id: 'transaction-1',
-            data: () => ({
-              type: 'purchase',
-              amount: 10,
-              description: 'Credit purchase',
-              createdAt: new Date(),
-              balanceAfter: 110
-            })
-          }
-        ]
-      })
-    })
+// Mock Firebase SDK (client-side)
+jest.mock('../firebase-sdk', () => ({
+  db: {
+    collection: jest.fn(),
+    doc: jest.fn(),
+    getDoc: jest.fn(),
+    setDoc: jest.fn(),
+    updateDoc: jest.fn(),
+    deleteDoc: jest.fn(),
+    addDoc: jest.fn(),
+    getDocs: jest.fn(),
+    query: jest.fn(),
+    where: jest.fn(),
+    orderBy: jest.fn(),
+    limit: jest.fn(),
+    startAfter: jest.fn()
   }
 }));
+
+// Global test cleanup
+afterAll(async () => {
+  // Force close any remaining handles
+  await new Promise((resolve) => {
+    setTimeout(resolve, 100);
+  });
+  
+  // Clear all timers
+  jest.clearAllTimers();
+  
+  // Clear all mocks
+  jest.clearAllMocks();
+  
+  // Force garbage collection if available
+  if (global.gc) {
+    global.gc();
+  }
+});

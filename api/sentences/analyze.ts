@@ -4,20 +4,10 @@ import { analyzeEnglishSentence, AIAnalysisError } from '../ai/gemini';
 import { setCorsHeaders, handleOptionsRequest } from '../utils/response';
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
+  console.log('Analyze handler called:', req.method, req.url);
   const request = req as RenderRequest;
   const response = enhanceResponse(res);
   
-  // Parse request body
-  if (request.method === 'POST') {
-    try {
-      request.body = await parseRequestBody(request);
-    } catch (error) {
-      return response.status(400).json({
-        success: false,
-        error: 'Invalid JSON in request body'
-      });
-    }
-  }
   // Handle CORS
   if (request.method === 'OPTIONS') {
     return handleOptionsRequest(response);
@@ -33,12 +23,23 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       error: 'Method not allowed. Use POST.'
     });
   }
+  
+  // Express middleware already parsed the body, so we can use req.body directly
+  console.log('Request body from Express:', (req as any).body);
+  
+  if (!(req as any).body || !(req as any).body.englishSentence) {
+    console.error('Missing englishSentence in request body');
+    return response.status(400).json({ 
+      success: false,
+      error: 'englishSentence is required' 
+    });
+  }
 
   try {
     // Note: Authentication removed as part of Firebase Auth cleanup
 
     // Validate request body
-    const { sentenceId, englishSentence, userTranslation, context } = request.body;
+    const { sentenceId, englishSentence, userTranslation, context } = (req as any).body;
 
     if (!sentenceId && !englishSentence) {
       return response.status(400).json({
@@ -70,11 +71,13 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
     try {
       // Perform AI analysis
+      console.log('Starting AI analysis for:', sentenceData.englishSentence);
       const analysisResult = await analyzeEnglishSentence(
         sentenceData.englishSentence,
         sentenceData.userTranslation,
         sentenceData.context
       );
+      console.log('AI analysis completed successfully');
 
       // TODO: Implement credit deduction with new system
       // TODO: Update sentence with analysis results in new database
@@ -83,6 +86,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
       const creditsRemaining = currentCredits - 1;
 
       // Return success response
+      console.log('Sending success response with analysis result');
       return response.status(200).json({
         success: true,
         data: {
