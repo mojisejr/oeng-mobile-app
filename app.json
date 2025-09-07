@@ -6,11 +6,33 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "oeng",
+    "intentFilters": [
+      {
+        "action": "VIEW",
+        "data": [
+          {
+            "scheme": "oeng"
+          }
+        ],
+        "category": [
+          "BROWSABLE",
+          "DEFAULT"
+        ]
+      }
+    ],
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.oengapp"
+      "bundleIdentifier": "com.oengapp",
+      "infoPlist": {
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLName": "oeng",
+            "CFBundleURLSchemes": ["oeng"]
+          }
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -39,6 +61,9 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "clerkPublishableKey": "pk_test_dGhhbmtmdWwtZG9nLTYyLmNsZXJrLmFjY291bnRzLmRldiQ"
     }
   }
 }

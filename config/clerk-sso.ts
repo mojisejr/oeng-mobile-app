@@ -9,7 +9,9 @@ export const ClerkSSOConfig = {
     provider: 'oauth_line',
     enabled: true,
     // Line Channel ID will be configured in Clerk Dashboard
-    // Redirect URI: https://your-app.clerk.accounts.dev/v1/oauth_callback
+    // Redirect URIs: 
+    // - https://thankful-dog-62.clerk.accounts.dev/v1/oauth_callback
+    // - oeng:///(tabs)
   },
 
   // Google OAuth Configuration
@@ -17,7 +19,9 @@ export const ClerkSSOConfig = {
     provider: 'oauth_google',
     enabled: true,
     // Google Client ID will be configured in Clerk Dashboard
-    // Authorized redirect URIs: https://your-app.clerk.accounts.dev/v1/oauth_callback
+    // Authorized redirect URIs:
+    // - https://thankful-dog-62.clerk.accounts.dev/v1/oauth_callback
+    // - oeng:///(tabs)
   },
 
   // Facebook Login Configuration
@@ -25,7 +29,9 @@ export const ClerkSSOConfig = {
     provider: 'oauth_facebook',
     enabled: true,
     // Facebook App ID will be configured in Clerk Dashboard
-    // Valid OAuth Redirect URIs: https://your-app.clerk.accounts.dev/v1/oauth_callback
+    // Valid OAuth Redirect URIs:
+    // - https://thankful-dog-62.clerk.accounts.dev/v1/oauth_callback
+    // - oeng:///(tabs)
   },
 };
 

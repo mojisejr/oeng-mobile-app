@@ -5,14 +5,14 @@
 
 import { useAuth, useUser, useOAuth } from '@clerk/clerk-expo';
 import { useCallback } from 'react';
+import { useRouter } from 'expo-router';
 import type { SSOProvider } from '@/config/clerk-sso';
 import { ClerkOAuthStrategies } from '@/config/clerk-sso';
 
 export const useClerkAuth = () => {
   const { isLoaded, isSignedIn, signOut } = useAuth();
   const { user } = useUser();
-
-  // OAuth hooks for each provider
+  const router = useRouter();
   const { startOAuthFlow: startGoogleOAuth } = useOAuth({ strategy: 'oauth_google' });
   const { startOAuthFlow: startFacebookOAuth } = useOAuth({ strategy: 'oauth_facebook' });
   const { startOAuthFlow: startLineOAuth } = useOAuth({ strategy: 'oauth_line' });
@@ -40,11 +40,13 @@ export const useClerkAuth = () => {
       }
 
       const { createdSessionId, setActive } = await startOAuthFlow({
-        redirectUrl: '/dashboard',
+        redirectUrl: 'oeng:///(tabs)',
       });
 
       if (createdSessionId && setActive) {
-        setActive({ session: createdSessionId });
+        await setActive({ session: createdSessionId });
+        // Navigate to main app after successful authentication
+        router.replace('/(tabs)');
       }
     } catch (error) {
       console.error(`Error signing in with ${provider}:`, error);
