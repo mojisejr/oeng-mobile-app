@@ -45,8 +45,15 @@ export const useClerkAuth = () => {
 
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
-        // Navigate to main app after successful authentication
-        router.replace('/(tabs)');
+        
+        // Enhanced post-login navigation with delay to ensure session is fully established
+        setTimeout(() => {
+          router.replace('/(tabs)');
+        }, 100);
+        
+        return { success: true, sessionId: createdSessionId };
+      } else {
+        throw new Error('Failed to create session or set active session');
       }
     } catch (error) {
       console.error(`Error signing in with ${provider}:`, error);

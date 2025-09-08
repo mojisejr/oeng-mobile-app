@@ -75,13 +75,18 @@ function AppContent() {
     if (!isLoaded) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+    const inTabsGroup = segments[0] === '(tabs)';
 
-    if (isSignedIn && inAuthGroup) {
-      // Redirect to main app if signed in and in auth screens
-      router.replace('/(tabs)');
-    } else if (!isSignedIn && !inAuthGroup) {
-      // Redirect to auth if not signed in and not in auth screens
-      router.replace('/(auth)/sign-in');
+    if (isSignedIn) {
+      // If signed in and in auth screens, redirect to tabs
+      if (inAuthGroup) {
+        router.replace('/(tabs)');
+      }
+    } else {
+      // If not signed in and not in auth screens, redirect to sign-in
+      if (inTabsGroup) {
+        router.replace('/(auth)/sign-in');
+      }
     }
   }, [isSignedIn, segments, isLoaded, router]);
 
