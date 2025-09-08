@@ -1,6 +1,6 @@
-import React from 'react';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import React from "react";
 
 export default function AuthLayout() {
   return (
@@ -9,21 +9,21 @@ export default function AuthLayout() {
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: '#ffffff' },
+          contentStyle: { backgroundColor: "#ffffff" },
         }}
       >
         <Stack.Screen
           name="sign-in"
           options={{
-            title: 'Sign In',
+            title: "Sign In",
           }}
         />
-        <Stack.Screen
+        {/* <Stack.Screen
           name="sign-up"
           options={{
             title: 'Sign Up',
           }}
-        />
+        /> */}
       </Stack>
     </>
   );

@@ -1,11 +1,10 @@
-import React from 'react';
-import { Text, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
-import { SSOProvidersList } from '@/components/auth/ClerkAuthComponents';
-import { useClerkAuth } from '@/hooks/useClerkAuth';
-import { AuthContainer } from '@/components/auth/AuthContainer';
-import { AuthHeader } from '@/components/auth/AuthHeader';
-import type { SSOProvider } from '@/config/clerk-sso';
+import { AuthContainer } from "@/components/auth/AuthContainer";
+import { AuthHeader } from "@/components/auth/AuthHeader";
+import { SSOProvidersList } from "@/components/auth/ClerkAuthComponents";
+import type { SSOProvider } from "@/config/clerk-sso";
+import { useClerkAuth } from "@/hooks/useClerkAuth";
+import { useRouter } from "expo-router";
+import React from "react";
 
 export default function SignInScreen() {
   const { signInWithOAuth } = useClerkAuth();
@@ -15,29 +14,27 @@ export default function SignInScreen() {
     try {
       await signInWithOAuth(provider);
     } catch (error) {
-      console.error('Sign in error:', error);
+      console.error("Sign in error:", error);
     }
   };
 
   return (
     <AuthContainer>
-      <AuthHeader 
+      <AuthHeader
         title="เข้าสู่ระบบ"
         subtitle="เข้าสู่ระบบเพื่อใช้งาน AI English Coach"
         showLogo={true}
       />
-      
-      <SSOProvidersList 
-        onProviderSelect={handleProviderSelect}
-      />
-      
-      <TouchableOpacity 
+
+      <SSOProvidersList onProviderSelect={handleProviderSelect} />
+
+      {/* <TouchableOpacity 
         onPress={() => router.push('/(auth)/sign-up')}
         className="mt-6 flex-row justify-center items-center"
       >
         <Text className="text-sm text-gray-600">ยังไม่มีบัญชี? </Text>
         <Text className="text-sm text-blue-600 font-medium">สมัครสมาชิก</Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
     </AuthContainer>
   );
 }
