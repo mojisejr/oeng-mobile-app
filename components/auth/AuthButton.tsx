@@ -1,7 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, Text, View, ActivityIndicator } from 'react-native';
 import { cn } from '@/lib/utils';
-import { useAuthForm } from './AuthForm';
 
 export interface AuthButtonProps {
   title: string;
@@ -32,24 +31,11 @@ export const AuthButton: React.FC<AuthButtonProps> = ({
   iconPosition = 'left',
   type = 'button',
 }) => {
-  const authForm = useAuthForm();
-  const isFormSubmitting = authForm?.isSubmitting || false;
-  const hasFormErrors = authForm?.hasErrors || false;
-  
-  const isDisabled = disabled || loading || isFormSubmitting;
-  const isLoading = loading || (type === 'submit' && isFormSubmitting);
-  
-  // For submit buttons, disable if form has errors
-  const shouldDisableSubmit = type === 'submit' && hasFormErrors;
+  const isDisabled = disabled || loading;
+  const isLoading = loading;
 
   const handlePress = () => {
-    if (isDisabled || shouldDisableSubmit) return;
-    
-    if (type === 'submit' && authForm?.validateForm) {
-      const isValid = authForm.validateForm();
-      if (!isValid) return;
-    }
-    
+    if (isDisabled) return;
     onPress?.();
   };
 
@@ -129,7 +115,7 @@ export const AuthButton: React.FC<AuthButtonProps> = ({
 
   const variantStyles = getVariantStyles();
   const sizeStyles = getSizeStyles();
-  const finalDisabled = isDisabled || shouldDisableSubmit;
+  const finalDisabled = isDisabled;
 
   const renderIcon = () => {
     if (isLoading) {
