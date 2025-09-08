@@ -105,7 +105,6 @@ const getThailandDateForFilename = () => {
 ### Mobile App Structure
 
 - **Core Screens**:
-
   - `Add/Edit Sentence Screen`: Input fields for English sentence, user translation, and context
   - `Sentence List Screen`: Display saved sentences with status indicators and search/filter
   - `Analysis Result Screen`: AI-generated analysis with 7 detailed sections
@@ -121,13 +120,11 @@ const getThailandDateForFilename = () => {
 ### Backend Render Serverless Functions
 
 - **Sentence Management**:
-
   - `POST /api/saveSentence`: Save new sentences to Firestore
   - `GET /api/getSentences`: Retrieve user's sentence list with filtering
   - `POST /api/analyzeSentence`: Process AI analysis and update sentence status
 
 - **User Management**:
-
   - User profile and credit balance management
   - Authentication state handling
   - Credit deduction and top-up processing
@@ -243,6 +240,38 @@ You are instructed to focus **ONLY** on the task described in the assigned Issue
 
 **DO NOT** modify Expo configuration or native dependencies without explicit permission. The app uses Expo managed workflow and any changes to native modules must be thoroughly tested. Always use Expo-compatible libraries and follow Expo best practices.
 
+### COMPONENT API VALIDATION
+
+**⚠️ CRITICAL: Always Validate Component APIs Before Implementation**
+
+Based on retrospective learnings, you **MUST** validate component APIs and props before implementation to avoid rework:
+
+- **Research component documentation** thoroughly before using new components
+- **Verify prop support** and available methods before implementation
+- **Check TypeScript definitions** to understand component interfaces
+- **Test component behavior** in isolation before integration
+- **Validate third-party library compatibility** with current project versions
+
+**Example Pattern**: Before using `ClerkLoaded` component, verify if `fallback` prop is supported in the current version.
+
+### ENVIRONMENT VARIABLE SECURITY
+
+**⚠️ CRITICAL: Separate Server and Client Environment Variables**
+
+Based on deployment security learnings:
+
+- **Server Secrets**: Store in `.env.server` (Firebase admin keys, Stripe secret keys)
+- **Client Configuration**: Store in `.env` (Firebase client config, Stripe publishable keys)
+- **Never expose server secrets** to client-side code or mobile applications
+- **Use separate environment files** for different deployment environments
+- **Validate environment variables** at application startup
+
+**Security Checklist**:
+- [ ] Server secrets separated from client configuration
+- [ ] Environment variables validated at startup
+- [ ] No secrets in commit messages or PR descriptions
+- [ ] Proper Firebase SDK usage (admin vs client)
+
 ---
 
 ## 🚀 Development Workflows
@@ -266,7 +295,6 @@ These commands are standard across all projects and streamline our communication
 - **`=plan > [question/problem]`**: Creates a **GitHub Task Issue** with a detailed and comprehensive plan of action. The agent will use all the information from the `current-focus.md` file and previous conversations to create this Issue. If an open Task Issue already exists, the agent will **update** that Issue with the latest information instead of creating a new one.
 
 - **`=impl > [message]`**: **ENHANCED WITH AUTOMATED WORKFLOW** - Instructs the agent to execute the plan contained in the latest **GitHub Task Issue** with full automation:
-
   1. **Auto-Branch Creation**: Creates feature branch with proper naming (`feature/[issue-number]-[description]`)
   2. **Implementation**: Executes the planned work
   3. **Auto-Commit & Push**: Commits changes with descriptive messages and pushes to remote
@@ -481,7 +509,51 @@ When you use the `=rrr` command, the agent will create a file and an Issue with 
 
 ---
 
-## 🔧 Troubleshooting
+##### 🔧 Troubleshooting
+
+### 🚨 ERROR HANDLING PATTERNS
+
+**⚠️ CRITICAL: Implement Systematic Error Handling and Debugging**
+
+Based on retrospective learnings, follow these error handling patterns:
+
+#### Authentication Error Patterns
+- **Token Validation**: Always verify token format and expiration
+- **Firebase Auth State**: Handle auth state changes gracefully
+- **Clerk Integration**: Implement proper fallback for SSO failures
+- **Error Logging**: Log authentication errors with context (no sensitive data)
+
+#### API Error Handling
+- **Network Errors**: Implement retry logic with exponential backoff
+- **Rate Limiting**: Handle API rate limits gracefully
+- **Timeout Handling**: Set appropriate timeouts for external APIs
+- **Error Response Parsing**: Validate error response structure
+
+#### Environment Variable Debugging
+```bash
+# Check environment variables
+echo "Firebase Project: $FIREBASE_PROJECT_ID"
+echo "Stripe Key (first 10 chars): ${STRIPE_PUBLISHABLE_KEY:0:10}"
+echo "Gemini API Key set: ${GOOGLE_GENERATIVE_AI_API_KEY:+YES}"
+
+# Validate Firebase configuration
+node -e "console.log('Firebase config:', {
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN
+})"
+```
+
+#### Deployment Error Debugging
+- **Build Logs**: Always check complete build logs for errors
+- **Environment Sync**: Verify environment variables match between local and production
+- **Dependency Conflicts**: Check for version mismatches in package.json
+- **Firebase SDK Compatibility**: Ensure admin and client SDK versions are compatible
+
+#### Common Error Patterns to Avoid
+- **Silent Failures**: Always log errors, even if handled gracefully
+- **Incomplete Error Context**: Include relevant context in error messages
+- **Hardcoded Values**: Use environment variables for all configuration
+- **Missing Fallbacks**: Implement fallback UI for error states
 
 ### Common Issues
 
@@ -638,6 +710,51 @@ stripe payment_intents create --amount=2000 --currency=thb
 }
 ```
 
+### 🧠 CORE MEMORY - RETROSPECTIVE LEARNINGS
+
+**⚠️ CRITICAL: Key Patterns and Lessons from Development Sessions**
+
+This section contains essential learnings from retrospective analysis to prevent recurring issues:
+
+#### Authentication & Security Patterns
+- **Clerk SSO Migration**: Always validate component API support before implementation (e.g., `ClerkLoaded` fallback prop)
+- **Firebase SDK Separation**: Use admin SDK for server operations, client SDK for frontend
+- **Environment Variable Security**: Separate server secrets from client configuration files
+- **Token Validation**: Implement proper token verification and error handling
+
+#### Development Workflow Improvements
+- **Component Research First**: Always research component documentation before implementation
+- **Systematic Testing**: Implement testing at each development stage (pre-implementation, development, pre-deployment, post-implementation)
+- **Build Validation**: Run TypeScript compilation and linting after major changes
+- **Environment Sync**: Verify environment variables match between local and production
+
+#### Error Handling & Debugging
+- **Comprehensive Logging**: Log errors with context but never expose sensitive data
+- **Graceful Fallbacks**: Implement fallback UI for error states
+- **Network Resilience**: Add retry logic with exponential backoff for API calls
+- **Deployment Debugging**: Always check complete build logs and dependency compatibility
+
+#### API & Integration Patterns
+- **Endpoint Testing**: Use systematic curl commands to test API endpoints
+- **Authentication Flow**: Verify token handling and user state management
+- **Third-party Integration**: Validate library compatibility with current project versions
+- **Performance Monitoring**: Track response times and resource usage
+
+#### Critical Success Factors
+1. **Research Before Implementation**: Prevents rework and compatibility issues
+2. **Systematic Testing Approach**: Catches issues early in development cycle
+3. **Proper Environment Management**: Ensures security and deployment success
+4. **Comprehensive Error Handling**: Provides better user experience and debugging
+5. **Documentation Updates**: Keep CLAUDE.md updated with learnings and patterns
+
+#### Recurring Issue Prevention
+- **Component API Validation**: Check props and methods before using new components
+- **Environment Variable Validation**: Verify all required variables at application startup
+- **Firebase SDK Usage**: Ensure proper admin vs client SDK implementation
+- **Build Process Validation**: Test builds before deployment to catch issues early
+
+**Last Updated**: 2025-09-08 (Based on retrospectives from 2025-09-05 to 2025-09-08)
+
 ---
 
 ## 📚 Additional Resources
@@ -665,5 +782,61 @@ stripe payment_intents create --amount=2000 --currency=thb
 - **E2E Testing**: Detox for end-to-end mobile testing
 - **Payment Testing**: Stripe test mode for payment flow testing
 - **AI Testing**: Mock responses for Gemini API testing
+
+### 🧪 SYSTEMATIC TESTING APPROACH
+
+**⚠️ CRITICAL: Implement Comprehensive Testing at Each Development Stage**
+
+Based on retrospective learnings, follow this systematic testing approach:
+
+#### Pre-Implementation Validation
+- **Component API Research**: Validate component props and methods before implementation
+- **Dependency Compatibility**: Check library versions and compatibility
+- **Environment Setup**: Verify all required environment variables
+- **Firebase SDK Validation**: Ensure proper admin vs client SDK usage
+
+#### Development Stage Testing
+- **TypeScript Compilation**: `npx tsc --noEmit` after major changes
+- **ESLint Validation**: `npm run lint` to catch code quality issues
+- **Local API Testing**: Use curl commands to test endpoints systematically
+- **Authentication Flow Testing**: Verify token handling and user states
+
+#### Pre-Deployment Validation
+- **Build Testing**: `expo build` or `npm run build` to catch build issues
+- **Environment Variable Testing**: Verify all required variables are set
+- **Firebase Connection Testing**: Test Firestore and Auth connectivity
+- **Payment Flow Testing**: Validate Stripe integration in test mode
+
+#### Post-Implementation Verification
+- **Endpoint Functionality**: Test all API endpoints with proper authentication
+- **Error Handling**: Verify graceful error handling for edge cases
+- **Performance Monitoring**: Check response times and resource usage
+- **Security Validation**: Ensure no sensitive data exposure
+
+#### Testing Commands Reference
+
+```bash
+# TypeScript validation
+npx tsc --noEmit
+
+# Linting
+npm run lint
+
+# Build testing
+expo build
+npm run build
+
+# Local API testing examples
+curl -X GET http://localhost:3000/api/health
+curl -X POST http://localhost:3000/api/auth/verify \
+  -H "Authorization: Bearer $TOKEN"
+
+# Firebase testing
+firebase emulators:start
+firebase functions:shell
+
+# Stripe testing
+stripe listen --forward-to localhost:3000/webhook
+```
 
 ---

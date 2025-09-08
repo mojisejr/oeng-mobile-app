@@ -1,6 +1,7 @@
 import { Tabs } from "expo-router";
 import React from "react";
 import { Platform } from "react-native";
+import { User } from "lucide-react-native";
 
 import { HapticTab } from "@/components/HapticTab";
 import { IconSymbol } from "@/components/ui/IconSymbol";
@@ -43,13 +44,22 @@ export default function TabLayout() {
       <Tabs.Screen
         name="explore"
         options={{
-          title: "Explore",
+          title: "สำรวจ",
           tabBarIcon: ({ color, focused }) => (
             <IconSymbol
               size={28}
               name={focused ? "paperplane.fill" : "paperplane"}
               color={color}
             />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "โปรไฟล์",
+          tabBarIcon: ({ color, focused }) => (
+            <User size={28} color={color} strokeWidth={focused ? 2.5 : 2} />
           ),
         }}
       />
