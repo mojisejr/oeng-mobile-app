@@ -29,7 +29,9 @@
         "CFBundleURLTypes": [
           {
             "CFBundleURLName": "oeng",
-            "CFBundleURLSchemes": ["oeng"]
+            "CFBundleURLSchemes": [
+              "oeng"
+            ]
           }
         ]
       }
@@ -57,7 +59,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
